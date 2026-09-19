@@ -67,6 +67,8 @@ Verification so far: 20 tables, 6 owner policies, and clean `git diff --check`. 
 
 The next action is to apply this migration to a disposable Supabase development database, resolve any PostgreSQL-specific issues, then proceed to the APKG importer.
 
+Setup instructions are in `docs/supabase-setup.md`. `npx supabase db push --dry-run` currently stops before validation because the CLI is not linked to project `oviaelruznhpgwbmidfa`; local Postgres validation is also unavailable because Docker is not installed.
+
 ## Task 3 — APKG Importer
 
 Implemented `scripts/import_apkg.py` and the `npm run import:apkg` command.

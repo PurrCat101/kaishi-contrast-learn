@@ -26,7 +26,7 @@ Status legend:
 
 ## Next Execution Order
 
-1. Apply and validate Task 1 migration against Supabase
-2. Task 3 — Task 3 Supabase upload and idempotent import validation
+1. Link Supabase and apply/validate Task 1 migration
+2. Task 3 — Supabase upload and idempotent import validation
 3. Task 2 — Authentication + RLS client integration
 4. Migrate Tasks 6–9 and 12–13 from local browser state to authenticated backend state
