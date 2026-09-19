@@ -91,6 +91,13 @@ Verification:
 
 Remaining: upload normalized rows/media server-side through Supabase service-role operations and verify re-import behavior against the live schema.
 
+### Live Supabase Connectivity Check — 2026-09-19
+
+- Supabase REST responded successfully for `vocabulary`, `user_vocabulary`, and `user_notes`.
+- The configured project host and JWT project reference match.
+- Guest reads returned HTTP 200 with empty results; this confirms the API/schema path but is not by itself a complete cross-user RLS test because the tables are currently empty.
+- The next implementation is the explicit server-side APKG upload command using the service-role key only at runtime.
+
 ## Task 2 — Authentication Foundation
 
 Implemented:
