@@ -216,7 +216,7 @@ function shuffle(list: Word[], seedId: number) {
   const a = [...list];
   for (let i = a.length - 1; i > 0; i--) {
     const j = (seedId * (i + 7)) % (i + 1);
-    [a[i], a[j]] = [a[j], a[i]];
+    [a[i], a[j]] = [a[j]!, a[i]!];
   }
   return a;
 }

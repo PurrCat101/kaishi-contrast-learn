@@ -132,7 +132,7 @@ export function parseFurigana(s: string): { text: string; rt?: string }[] {
   let m: RegExpExecArray | null;
   while ((m = re.exec(s))) {
     if (m.index > last) out.push({ text: s.slice(last, m.index) });
-    out.push({ text: m[1], rt: m[2] });
+    out.push({ text: m[1]!, rt: m[2]! });
     last = m.index + m[0].length;
   }
   if (last < s.length) out.push({ text: s.slice(last) });

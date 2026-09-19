@@ -124,7 +124,7 @@ function makeSeed(now: number): SrsState {
   for (let dd = 1; dd <= 12; dd++) {
     if (!log.some((l) => l.t >= d0 - dd * DAY && l.t < d0 - (dd - 1) * DAY)) {
       const w = pool[Math.floor(rnd() * pool.length)];
-      log.push({ t: d0 - dd * DAY + 9 * 3_600_000, id: w.id, rating: 3 });
+      log.push({ t: d0 - dd * DAY + 9 * 3_600_000, id: w!.id, rating: 3 });
     }
   }
   log.sort((a, b) => a.t - b.t);
