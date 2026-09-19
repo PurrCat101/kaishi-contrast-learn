@@ -8,7 +8,7 @@ Status legend:
 - [x] Task 0 — Repository Audit
 - [~] Task 1 — Database Foundation (migration added; Supabase apply pending)
 - [~] Task 2 — Authentication + RLS (client session/OAuth foundation; provider setup and backend validation pending)
-- [~] Task 3 — Kaishi Import (APKG inspected; importer not implemented)
+- [~] Task 3 — Kaishi Import (offline normalization implemented; Supabase upload pending)
 - [x] Task 4 — Vocabulary Search (current frontend scope)
 - [x] Task 5 — Vocabulary Detail (current frontend scope)
 - [~] Task 6 — My Words + Notes (localStorage; Supabase/RLS pending)
@@ -27,6 +27,6 @@ Status legend:
 ## Next Execution Order
 
 1. Apply and validate Task 1 migration against Supabase
-2. Task 3 — Kaishi Import
+2. Task 3 — Task 3 Supabase upload and idempotent import validation
 3. Task 2 — Authentication + RLS client integration
 4. Migrate Tasks 6–9 and 12–13 from local browser state to authenticated backend state

@@ -67,6 +67,28 @@ Verification so far: 20 tables, 6 owner policies, and clean `git diff --check`. 
 
 The next action is to apply this migration to a disposable Supabase development database, resolve any PostgreSQL-specific issues, then proceed to the APKG importer.
 
+## Task 3 — APKG Importer
+
+Implemented `scripts/import_apkg.py` and the `npm run import:apkg` command.
+
+The importer currently:
+
+- Reads `collection.anki21` first and falls back to `collection.anki2`.
+- Computes a package SHA-256 for idempotency metadata.
+- Normalizes the Kaishi note fields while preserving raw fields.
+- Extracts source note/model/deck identity, media references, and Anki counts.
+- Validates every media reference against the APKG manifest.
+- Can optionally extract media, but defaults to dry-run and does not contact Supabase.
+- Keeps source revlog count as audit information rather than application review history.
+
+Verification:
+
+- `npm run import:apkg -- kashi-deck.apkg`: PASS
+- Result: 1,500 notes, 1,500 cards, 7,711 revlog rows, 4,354 media files.
+- Package SHA-256: `0f9fffd94dcd30767e0eeef56a7d169258fd1ed38b1dc816385066ed72b134e5`
+
+Remaining: upload normalized rows/media server-side through Supabase service-role operations and verify re-import behavior against the live schema.
+
 ## Task 2 — Authentication Foundation
 
 Implemented:

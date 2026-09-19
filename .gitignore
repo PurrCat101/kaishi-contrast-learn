@@ -23,6 +23,9 @@ dist-ssr
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars
+supabase/.temp/
+__pycache__/
+*.py[cod]
 
 # Editor directories and files
 .vscode/*
