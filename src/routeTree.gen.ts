@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProgressRouteImport } from './routes/progress'
+import { Route as ReviewRouteImport } from './routes/review'
 import { Route as VocabIndexRouteImport } from './routes/vocab.index'
 import { Route as VocabIdRouteImport } from './routes/vocab.$id'
 
@@ -22,6 +23,11 @@ const IndexRoute = IndexRouteImport.update({
 const ProgressRoute = ProgressRouteImport.update({
   id: '/progress',
   path: '/progress',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReviewRoute = ReviewRouteImport.update({
+  id: '/review',
+  path: '/review',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VocabIndexRoute = VocabIndexRouteImport.update({
@@ -38,12 +44,14 @@ const VocabIdRoute = VocabIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/progress': typeof ProgressRoute
+  '/review': typeof ReviewRoute
   '/vocab/$id': typeof VocabIdRoute
   '/vocab/': typeof VocabIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/progress': typeof ProgressRoute
+  '/review': typeof ReviewRoute
   '/vocab/$id': typeof VocabIdRoute
   '/vocab': typeof VocabIndexRoute
 }
@@ -51,20 +59,22 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/progress': typeof ProgressRoute
+  '/review': typeof ReviewRoute
   '/vocab/$id': typeof VocabIdRoute
   '/vocab/': typeof VocabIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/progress' | '/vocab/$id' | '/vocab/'
+  fullPaths: '/' | '/progress' | '/review' | '/vocab/$id' | '/vocab/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/progress' | '/vocab/$id' | '/vocab'
-  id: '__root__' | '/' | '/progress' | '/vocab/$id' | '/vocab/'
+  to: '/' | '/progress' | '/review' | '/vocab/$id' | '/vocab'
+  id: '__root__' | '/' | '/progress' | '/review' | '/vocab/$id' | '/vocab/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ProgressRoute: typeof ProgressRoute
+  ReviewRoute: typeof ReviewRoute
   VocabIdRoute: typeof VocabIdRoute
   VocabIndexRoute: typeof VocabIndexRoute
 }
@@ -83,6 +93,13 @@ declare module '@tanstack/react-router' {
       path: '/progress'
       fullPath: '/progress'
       preLoaderRoute: typeof ProgressRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/review': {
+      id: '/review'
+      path: '/review'
+      fullPath: '/review'
+      preLoaderRoute: typeof ReviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/vocab/': {
@@ -105,6 +122,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ProgressRoute: ProgressRoute,
+  ReviewRoute: ReviewRoute,
   VocabIdRoute: VocabIdRoute,
   VocabIndexRoute: VocabIndexRoute,
 }

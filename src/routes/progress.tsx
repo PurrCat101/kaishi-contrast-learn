@@ -70,7 +70,7 @@ function Progress() {
             ))}
           </div>
           <div className="mt-1 flex justify-between border-t-2 border-border pt-1 font-mono text-[10px] text-muted-foreground">
-            <span>{st.history[0].day.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+            <span>{st.history[0]?.day.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
             <span>today</span>
           </div>
         </Card>
