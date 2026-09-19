@@ -91,10 +91,10 @@ function Review() {
       </header>
 
       {step.contrast && conf ? (
-        <Card className="p-6 md:p-10">
+        <Card className="p-6 text-center md:p-10">
           <Eyebrow>Which word means this?</Eyebrow>
           <p className="mt-2 text-3xl md:text-4xl">{word.meaning}</p>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
             <span lang="ja" className="font-jp text-xl text-muted-foreground">reading: {word.reading}</span>
             <AudioButton text={word.word} />
           </div>
@@ -127,7 +127,7 @@ function Review() {
           </div>
 
           {pick !== null && (
-            <div className="mt-6 space-y-4">
+              <div className="mt-6 space-y-4 text-left">
               <div className="rounded-lg border-2 border-border bg-secondary p-5">
                 <Eyebrow className="text-foreground/70">Tell them apart</Eyebrow>
                 <p className="mt-2 whitespace-pre-line text-body">{word.notes || `${word.word} = ${word.meaning}.`}</p>
@@ -139,51 +139,72 @@ function Review() {
                   ))}
                 </ul>
               </div>
-              <Button size="lg" onClick={advance}>Continue <ArrowRight className="size-5" /></Button>
+              <Button size="lg" className="mx-auto" onClick={advance}>Continue <ArrowRight className="size-5" /></Button>
             </div>
           )}
         </Card>
       ) : (
-        <Card className="p-6 md:p-10">
-          <div className="grid gap-8 lg:grid-cols-[1.4fr_1fr]">
-            <div>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h1 lang="ja" className="text-jp-display text-6xl md:text-8xl">{word.word}</h1>
-                  {revealed && <p lang="ja" className="mt-3 font-jp text-2xl text-muted-foreground">{word.reading}</p>}
-                </div>
-                <AudioButton text={word.word} size="md" />
-              </div>
+        <Card className="p-6 text-center md:p-10">
+          <div className="mx-auto max-w-3xl">
+            <h1 lang="ja" className="text-jp-display text-6xl md:text-8xl">{word.word}</h1>
+            {revealed && <p lang="ja" className="mt-2 font-jp text-2xl text-muted-foreground">{word.reading}</p>}
 
+            <div className="mt-5 flex justify-center">
+              <AudioButton text={word.word} size="md" label={`Listen to ${word.word}`} />
+            </div>
+
+            <div className="mt-8 border-y-2 border-dashed border-border/50 py-6">
+              <Eyebrow>Example sentence</Eyebrow>
               {revealed ? (
-                <div className="mt-6 space-y-5">
-                  <p className="text-3xl text-foreground">{word.meaning}</p>
-                  <div className="rounded-lg border-2 border-border bg-background p-5">
-                    <Eyebrow>Example</Eyebrow>
-                    <div className="mt-3 flex items-start justify-between gap-4">
-                      <Furigana text={word.sentenceFurigana || word.sentence} className="text-xl leading-loose text-foreground" />
-                      <AudioButton text={word.sentence} />
-                    </div>
-                    <p className="mt-2 text-body">{word.sentenceEn}</p>
-                  </div>
-                  {conf && (
-                    <div className="rounded-lg border-2 border-border bg-accent p-4">
-                      <p className="text-sm text-accent-foreground">
-                        <Sparkles className="mr-2 inline size-4" />
-                        Don't mix up with{" "}
-                        <span lang="ja" className="font-jp font-bold">{conf.words.map((x) => x.word).join(" · ")}</span>
-                      </p>
-                    </div>
-                  )}
-                  <Link to="/vocab/$id" params={{ id: String(word.id) }} className="inline-block font-mono text-sm text-muted-foreground no-underline hover:text-foreground">
-                    Open full card →
-                  </Link>
-                </div>
+                <Furigana text={word.sentenceFurigana || word.sentence} className="mt-3 block text-xl leading-loose text-foreground md:text-2xl" />
               ) : (
-                <p className="mt-8 font-mono text-sm text-muted-foreground">Recall the reading and the meaning, then reveal.</p>
+                <p lang="ja" className="mt-3 font-jp text-xl leading-loose text-foreground md:text-2xl">{word.sentence}</p>
               )}
             </div>
-            <Illustration w={word} className={revealed ? "w-full" : "w-full blur-md"} />
+
+            {revealed ? (
+              <div className="mt-7 space-y-7">
+                <div>
+                  <Eyebrow>Answer</Eyebrow>
+                  <p className="mt-2 text-3xl text-foreground">{word.meaning}</p>
+                </div>
+
+                <div className="flex flex-wrap justify-center gap-3">
+                  <AudioButton text={word.word} size="md" label={`Listen to the word ${word.word}`} buttonText="Word" />
+                  <AudioButton text={word.sentence} size="md" label="Listen to the example sentence" buttonText="Sentence" />
+                </div>
+
+                <Illustration w={word} className="mx-auto w-full max-w-sm" />
+
+                <div className="space-y-2">
+                  <Eyebrow>English translation</Eyebrow>
+                  <p className="text-xl leading-relaxed text-body">{word.sentenceEn}</p>
+                </div>
+
+                {word.notes && (
+                  <div className="border-t-2 border-dashed border-border/50 pt-6 text-left">
+                    <Eyebrow>Note</Eyebrow>
+                    <p className="mt-2 whitespace-pre-line leading-relaxed text-body">{word.notes}</p>
+                  </div>
+                )}
+
+                {conf && (
+                  <div className="rounded-lg border-2 border-border bg-accent p-4 text-left">
+                    <p className="text-sm text-accent-foreground">
+                      <Sparkles className="mr-2 inline size-4" />
+                      Don't mix up with{" "}
+                      <span lang="ja" className="font-jp font-bold">{conf.words.map((x) => x.word).join(" · ")}</span>
+                    </p>
+                  </div>
+                )}
+
+                <Link to="/vocab/$id" params={{ id: String(word.id) }} className="inline-block font-mono text-sm text-muted-foreground no-underline hover:text-foreground">
+                  Open full card →
+                </Link>
+              </div>
+            ) : (
+              <p className="mt-7 font-mono text-sm text-muted-foreground">Recall the reading and meaning, then reveal the answer.</p>
+            )}
           </div>
 
           <div className="mt-8 border-t-2 border-dashed border-border/50 pt-6">
