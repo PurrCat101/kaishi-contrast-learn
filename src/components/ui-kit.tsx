@@ -97,11 +97,11 @@ export function Furigana({ text, className }: { text: string; className?: string
   );
 }
 
-export function AudioButton({ text, size = "icon", label = "Play audio" }: { text: string; size?: "icon" | "md"; label?: string }) {
+export function AudioButton({ text, size = "icon", label = "Play audio", buttonText = "Listen" }: { text: string; size?: "icon" | "md"; label?: string; buttonText?: string }) {
   return (
     <Button variant="surface" size={size} aria-label={label} onClick={() => speak(text)}>
       <Volume2 className="size-5" />
-      {size === "md" && <span>Listen</span>}
+      {size === "md" && <span>{buttonText}</span>}
     </Button>
   );
 }
