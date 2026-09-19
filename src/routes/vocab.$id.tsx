@@ -1,6 +1,8 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
-import { AudioButton, Card, Eyebrow, Furigana, Illustration, Tag, WordChip } from "@/components/ui-kit";
+import { ArrowLeft, Bookmark, BookmarkCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AudioButton, Button, Card, Eyebrow, Furigana, Illustration, Tag, WordChip } from "@/components/ui-kit";
+import { removeWord, saveWord, updateNote, useLibrary } from "@/lib/library";
 import { getCard, intervalLabel, retrievability, useSrs } from "@/lib/srs";
 import { getWord, related, type Word } from "@/lib/vocab";
 
@@ -29,6 +31,10 @@ export const Route = createFileRoute("/vocab/$id")({
 function Detail() {
   const { w } = Route.useLoaderData();
   useSrs();
+  const library = useLibrary();
+  const saved = Boolean(library[w.id]);
+  const [note, setNote] = useState(() => library[w.id]?.note ?? "");
+  useEffect(() => { setNote(library[w.id]?.note ?? ""); }, [library, w.id]);
   const c = getCard(w.id);
   const rel = related(w);
   const now = Date.now();
@@ -57,6 +63,17 @@ function Detail() {
             {c.confusions >= 2 && <Tag tone="destructive">Often confused</Tag>}
           </div>
 
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <Button
+              variant={saved ? "secondary" : "primary"}
+              onClick={() => saved ? removeWord(w.id) : saveWord(w.id)}
+            >
+              {saved ? <BookmarkCheck className="size-5" /> : <Bookmark className="size-5" />}
+              {saved ? "Saved to My Words" : "Add to My Words"}
+            </Button>
+            {saved && <span className="text-sm text-muted-foreground">Your collection is stored in this browser.</span>}
+          </div>
+
           <div className="mt-8 rounded-lg border-2 border-border bg-background p-5">
             <Eyebrow>Example</Eyebrow>
             <div className="mt-3 flex items-start justify-between gap-4">
@@ -70,6 +87,21 @@ function Detail() {
             <div className="mt-6 rounded-lg border-2 border-border bg-secondary p-5">
               <Eyebrow className="text-foreground/70">Notes</Eyebrow>
               <p className="mt-2 whitespace-pre-line text-body">{w.notes}</p>
+            </div>
+          )}
+
+          {saved && (
+            <div className="mt-6 rounded-lg border-2 border-border bg-info p-5">
+              <Eyebrow>My note</Eyebrow>
+              <textarea
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                onBlur={() => updateNote(w.id, note)}
+                placeholder="Add a memory hook, distinction, or example..."
+                rows={4}
+                className="mt-3 w-full resize-y rounded-md border-2 border-border bg-card p-3 text-body outline-none focus:ring-2 focus:ring-primary"
+              />
+              <p className="mt-2 font-mono text-xs text-muted-foreground">Saved when you leave the field.</p>
             </div>
           )}
         </Card>

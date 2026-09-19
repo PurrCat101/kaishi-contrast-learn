@@ -8,10 +8,12 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
-import { BarChart3, BookOpen, Home, Shuffle } from "lucide-react";
+import { BarChart3, BookMarked, BookOpen, Home, LogIn, LogOut, Shuffle } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { useAuth } from "../lib/auth";
+import { Button } from "../components/ui-kit";
 
 function NotFoundComponent() {
   return (
@@ -106,10 +108,13 @@ const nav = [
   { to: "/", label: "Today", icon: Home },
   { to: "/review", label: "Review", icon: Shuffle },
   { to: "/vocab", label: "Words", icon: BookOpen },
+  { to: "/my-words", label: "My Words", icon: BookMarked },
   { to: "/progress", label: "Progress", icon: BarChart3 },
 ] as const;
 
 function Header() {
+  const { session, loading, configured, signInWithGoogle, signOut } = useAuth();
+
   return (
     <header className="sticky top-0 z-20 border-b-2 border-border bg-background/90 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 md:px-8">
@@ -118,20 +123,31 @@ function Header() {
           <span className="font-display text-2xl text-foreground">Hashi</span>
           <span className="hidden font-mono text-xs uppercase tracking-widest text-muted-foreground sm:inline">Kaishi 1.5k</span>
         </Link>
-        <nav className="flex items-center gap-1" aria-label="Main">
-          {nav.map(({ to, label, icon: Icon }) => (
-            <Link
-              key={to}
-              to={to}
-              className="flex min-h-10 items-center gap-2 rounded-full border-2 border-transparent px-3 py-1 font-bold text-foreground no-underline transition-colors hover:bg-muted"
-              activeProps={{ className: "border-border bg-secondary shadow-hard-sm" }}
-              activeOptions={{ exact: to === "/" }}
-            >
-              <Icon className="size-4" />
-              <span className="hidden sm:inline">{label}</span>
-            </Link>
+        <div className="flex items-center gap-2">
+          <nav className="flex items-center gap-1" aria-label="Main">
+            {nav.map(({ to, label, icon: Icon }) => (
+              <Link
+                key={to}
+                to={to}
+                className="flex min-h-10 items-center gap-2 rounded-full border-2 border-transparent px-3 py-1 font-bold text-foreground no-underline transition-colors hover:bg-muted"
+                activeProps={{ className: "border-border bg-secondary shadow-hard-sm" }}
+                activeOptions={{ exact: to === "/" }}
+              >
+                <Icon className="size-4" />
+                <span className="hidden sm:inline">{label}</span>
+              </Link>
+            ))}
+          </nav>
+          {configured && !loading && (session ? (
+            <Button variant="ghost" size="icon" aria-label="Sign out" title="Sign out" onClick={() => void signOut()}>
+              <LogOut className="size-4" />
+            </Button>
+          ) : (
+            <Button variant="surface" size="icon" aria-label="Sign in with Google" title="Sign in with Google" onClick={() => void signInWithGoogle()}>
+              <LogIn className="size-4" />
+            </Button>
           ))}
-        </nav>
+        </div>
       </div>
     </header>
   );
