@@ -287,7 +287,11 @@ create table public.review_history (
 );
 
 create index vocabulary_search_idx on public.vocabulary using gin (
-  to_tsvector('simple', concat_ws(' ', word, meaning, part_of_speech, notes))
+  to_tsvector(
+    'simple'::regconfig,
+    coalesce(word, '') || ' ' || coalesce(meaning, '') || ' ' ||
+    coalesce(part_of_speech, '') || ' ' || coalesce(notes, '')
+  )
 );
 create index vocabulary_source_idx on public.vocabulary(source, source_version, source_note_id);
 create index vocabulary_readings_reading_idx on public.vocabulary_readings(reading);
