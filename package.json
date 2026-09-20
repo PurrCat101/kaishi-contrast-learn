@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write ."
-    ,"import:apkg": "python scripts/import_apkg.py"
+    ,"import:apkg": "python scripts/import_apkg.py",
+    "upload:apkg": "python scripts/upload_apkg.py"
   },
   "overrides": {
     "rolldown": "1.2.1"

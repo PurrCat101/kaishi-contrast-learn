@@ -71,7 +71,7 @@ function Detail() {
               {saved ? <BookmarkCheck className="size-5" /> : <Bookmark className="size-5" />}
               {saved ? "Saved to My Words" : "Add to My Words"}
             </Button>
-            {saved && <span className="text-sm text-muted-foreground">Your collection is stored in this browser.</span>}
+            {saved && <span className="text-sm text-muted-foreground">Your collection is saved locally and synced when you sign in.</span>}
           </div>
 
           <div className="mt-8 rounded-lg border-2 border-border bg-background p-5">
