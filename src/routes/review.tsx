@@ -161,37 +161,37 @@ function Review() {
   const options = conf ? shuffle([word, ...conf.words.slice(0, 2)], word.id) : [word];
 
   return (
-    <div className="space-y-6">
-      <header className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Eyebrow>Card {session.done + 1} of {session.done + remaining}</Eyebrow>
-            {card.state === "new" && <Tag tone="mint">New</Tag>}
-            {(card.state === "learning" || card.state === "relearning") && <Tag tone="secondary">{card.state === "learning" ? "Learning" : "Relearning"}</Tag>}
-            {mode === "contrast" && conf && <Tag tone="accent">{conf.kind}</Tag>}
+    <div className="space-y-4 sm:space-y-5 md:space-y-6">
+      <header className="space-y-2 sm:space-y-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+            <Eyebrow className="text-xs sm:text-sm">Card {session.done + 1} of {session.done + remaining}</Eyebrow>
+            {card.state === "new" && <Tag tone="mint" className="text-[10px] sm:text-xs">New</Tag>}
+            {(card.state === "learning" || card.state === "relearning") && <Tag tone="secondary" className="text-[10px] sm:text-xs">{card.state === "learning" ? "Learning" : "Relearning"}</Tag>}
+            {mode === "contrast" && conf && <Tag tone="accent" className="text-[10px] sm:text-xs">{conf.kind}</Tag>}
           </div>
-          <div className="flex items-center gap-4">
-            <span className="flex gap-1" aria-label="Cards remaining">
-              <Tag tone="info">{remainingNew} new</Tag>
-              <Tag tone="destructive">{remainingLearning} learning</Tag>
-              <Tag tone="mint">{remainingReview} review</Tag>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 md:gap-4">
+            <span className="flex flex-wrap gap-1" aria-label="Cards remaining">
+              <Tag tone="info" className="text-[10px] sm:text-xs">{remainingNew} new</Tag>
+              <Tag tone="destructive" className="text-[10px] sm:text-xs">{remainingLearning} learning</Tag>
+              <Tag tone="mint" className="text-[10px] sm:text-xs">{remainingReview} review</Tag>
             </span>
-            <Link to="/" className="font-mono text-sm text-muted-foreground no-underline hover:text-foreground">End session</Link>
+            <Link to="/" className="font-mono text-xs sm:text-sm text-muted-foreground no-underline hover:text-foreground">End session</Link>
           </div>
         </div>
         <ProgressBar value={session.done} max={session.done + remaining} />
       </header>
 
       {mode === "contrast" && conf ? (
-        <Card className="p-6 text-center md:p-10">
+        <Card className="p-4 sm:p-6 md:p-8 lg:p-10 text-center">
           <Eyebrow>Which word means this?</Eyebrow>
-          <p className="mt-2 text-3xl md:text-4xl">{word.meaning}</p>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-            <span lang="ja" className="font-jp text-xl text-muted-foreground">reading: {word.reading}</span>
+          <p className="mt-2 text-2xl sm:text-3xl md:text-4xl">{word.meaning}</p>
+          <div className="mt-3 sm:mt-4 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+            <span lang="ja" className="font-jp text-base sm:text-lg text-muted-foreground">reading: {word.reading}</span>
             <AudioButton text={word.word} src={wordAudio} />
           </div>
 
-          <div className="mt-8 grid gap-3 sm:grid-cols-3">
+          <div className="mt-6 sm:mt-8 grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
             {options.map((o) => {
               const chosen = pick === o.id;
               const right = o.id === word.id;
@@ -203,14 +203,14 @@ function Review() {
                   onClick={() => onPick(o)}
                   disabled={show}
                   className={[
-                    "card-hard pressable-sm flex flex-col items-center gap-2 p-6 text-center disabled:pointer-events-none",
+                    "card-hard pressable-sm flex flex-col items-center gap-1 sm:gap-2 p-3 sm:p-4 md:p-6 text-center disabled:pointer-events-none",
                     show && right ? "bg-mint text-mint-foreground" : "",
                     show && chosen && !right ? "bg-destructive text-destructive-foreground" : "",
                     show && !right && !chosen ? "opacity-50" : "",
                   ].join(" ")}
                 >
-                  <span lang="ja" className="text-jp-display text-5xl">{o.word}</span>
-                  {show && <span className="text-sm font-semibold">{o.meaning}</span>}
+                  <span lang="ja" className="text-jp-display text-3xl sm:text-4xl md:text-5xl">{o.word}</span>
+                  {show && <span className="text-xs sm:text-sm font-semibold">{o.meaning}</span>}
                   {show && right && <Check className="size-5" />}
                   {show && chosen && !right && <X className="size-5" />}
                 </button>
@@ -219,68 +219,68 @@ function Review() {
           </div>
 
           {pick !== null && (
-            <div className="mt-6 space-y-4 text-left">
-              <div className="rounded-lg border-2 border-border bg-secondary p-5">
+            <div className="mt-4 sm:mt-6 space-y-3 sm:space-y-4 text-left">
+              <div className="rounded-lg border-2 border-border bg-secondary p-3 sm:p-4 md:p-5">
                 <Eyebrow className="text-foreground/70">Tell them apart</Eyebrow>
-                <p className="mt-2 whitespace-pre-line text-body">{word.notes || `${word.word} = ${word.meaning}.`}</p>
-                <ul className="mt-3 space-y-1">
+                <p className="mt-2 whitespace-pre-line text-xs sm:text-sm text-body">{word.notes || `${word.word} = ${word.meaning}.`}</p>
+                <ul className="mt-2 sm:mt-3 space-y-1">
                   {conf.words.map((x) => (
-                    <li key={x.id} className="font-mono text-sm text-body">
-                      <span lang="ja" className="font-jp text-base">{x.word}（{x.reading}）</span> — {x.meaning}
+                    <li key={x.id} className="font-mono text-xs sm:text-sm text-body">
+                      <span lang="ja" className="font-jp text-sm sm:text-base">{x.word}（{x.reading}）</span> — {x.meaning}
                     </li>
                   ))}
                 </ul>
               </div>
-              <Button size="lg" className="mx-auto" onClick={advance}>Continue <ArrowRight className="size-5" /></Button>
+              <Button size="lg" className="mx-auto text-xs sm:text-sm" onClick={advance}>Continue <ArrowRight className="size-4 sm:size-5" /></Button>
             </div>
           )}
         </Card>
       ) : (
-        <Card className="p-6 text-center md:p-10">
+        <Card className="p-4 sm:p-6 md:p-8 lg:p-10 text-center">
           <div className="mx-auto max-w-3xl">
-            <h1 lang="ja" className="text-jp-display text-6xl md:text-8xl">{word.word}</h1>
-            {revealed && <p lang="ja" className="mt-2 font-jp text-2xl text-muted-foreground">{word.reading}</p>}
+            <h1 lang="ja" className="text-jp-display text-4xl sm:text-5xl md:text-6xl lg:text-8xl">{word.word}</h1>
+            {revealed && <p lang="ja" className="mt-2 font-jp text-lg sm:text-xl md:text-2xl text-muted-foreground">{word.reading}</p>}
 
-            <div className="mt-5 flex justify-center">
+            <div className="mt-3 sm:mt-4 md:mt-5 flex justify-center">
               <AudioButton text={word.word} src={wordAudio} size="md" label={`Listen to ${word.word}`} />
             </div>
 
-            <div className="mt-8 border-y-2 border-dashed border-border/50 py-6">
-              <Eyebrow>Example sentence</Eyebrow>
+            <div className="mt-6 sm:mt-8 border-y-2 border-dashed border-border/50 py-4 sm:py-6">
+              <Eyebrow className="text-sm sm:text-base">Example sentence</Eyebrow>
               {revealed ? (
-                <Furigana text={word.sentenceFurigana || word.sentence} className="mt-3 block text-xl leading-loose text-foreground md:text-2xl" />
+                <Furigana text={word.sentenceFurigana || word.sentence} className="mt-2 sm:mt-3 block text-base sm:text-lg md:text-xl lg:text-2xl leading-relaxed sm:leading-loose text-foreground" />
               ) : (
-                <p lang="ja" className="mt-3 font-jp text-xl leading-loose text-foreground md:text-2xl">{word.sentence}</p>
+                <p lang="ja" className="mt-2 sm:mt-3 font-jp text-base sm:text-lg md:text-xl lg:text-2xl leading-relaxed sm:leading-loose text-foreground">{word.sentence}</p>
               )}
             </div>
 
             {revealed ? (
-              <div className="mt-7 space-y-7">
+              <div className="mt-6 sm:mt-7 md:mt-8 space-y-4 sm:space-y-5 md:space-y-6 lg:space-y-7">
                 <div>
-                  <Eyebrow>Answer</Eyebrow>
-                  <p className="mt-2 text-3xl text-foreground">{word.meaning}</p>
+                  <Eyebrow className="text-sm sm:text-base">Answer</Eyebrow>
+                  <p className="mt-2 text-2xl sm:text-3xl md:text-4xl text-foreground">{word.meaning}</p>
                 </div>
 
-                <div className="flex flex-wrap justify-center gap-3">
+                <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
                   <AudioButton text={word.word} src={wordAudio} size="md" label={`Listen to the word ${word.word}`} buttonText="Word" />
                   <AudioButton text={word.sentence} src={sentenceAudio} size="md" label="Listen to the example sentence" buttonText="Sentence" />
                 </div>
 
-                <div className="space-y-2">
-                  <Eyebrow>English translation</Eyebrow>
-                  <p className="text-xl leading-relaxed text-body">{word.sentenceEn}</p>
+                <div className="space-y-1 sm:space-y-2">
+                  <Eyebrow className="text-sm sm:text-base">English translation</Eyebrow>
+                  <p className="text-sm sm:text-base md:text-lg leading-relaxed text-body">{word.sentenceEn}</p>
                 </div>
 
                 {word.notes && (
-                  <div className="border-t-2 border-dashed border-border/50 pt-6 text-left">
-                    <Eyebrow>Note</Eyebrow>
-                    <p className="mt-2 whitespace-pre-line leading-relaxed text-body">{word.notes}</p>
+                  <div className="border-t-2 border-dashed border-border/50 pt-4 sm:pt-6 text-left">
+                    <Eyebrow className="text-sm sm:text-base">Note</Eyebrow>
+                    <p className="mt-2 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-body">{word.notes}</p>
                   </div>
                 )}
 
                 {conf && (
-                  <div className="rounded-lg border-2 border-border bg-accent p-4 text-left">
-                    <p className="text-sm text-accent-foreground">
+                  <div className="rounded-lg border-2 border-border bg-accent p-3 sm:p-4 text-left">
+                    <p className="text-xs sm:text-sm text-accent-foreground">
                       <Sparkles className="mr-2 inline size-4" />
                       Don't mix up with{" "}
                       <span lang="ja" className="font-jp font-bold">{conf.words.map((x) => x.word).join(" · ")}</span>
@@ -288,18 +288,18 @@ function Review() {
                   </div>
                 )}
 
-                <Link to="/vocab/$id_number" params={{ id_number: String(word.idNumber) }} className="inline-block font-mono text-sm text-muted-foreground no-underline hover:text-foreground">
+                <Link to="/vocab/$id_number" params={{ id_number: String(word.idNumber) }} className="inline-block font-mono text-xs sm:text-sm text-muted-foreground no-underline hover:text-foreground">
                   Open full card →
                 </Link>
               </div>
             ) : (
-              <p className="mt-7 font-mono text-sm text-muted-foreground">Recall the reading and meaning, then reveal the answer.</p>
+              <p className="mt-6 sm:mt-7 md:mt-8 font-mono text-xs sm:text-sm text-muted-foreground">Recall the reading and meaning, then reveal the answer.</p>
             )}
           </div>
 
-          <div className="mt-8 border-t-2 border-dashed border-border/50 pt-6">
+          <div className="mt-6 sm:mt-8 border-t-2 border-dashed border-border/50 pt-4 sm:pt-6">
             {revealed ? (
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
                 {previewIntervals(card).map(({ rating, label }) => (
                   <Button
                     key={rating}
@@ -308,13 +308,13 @@ function Review() {
                     onClick={() => onRate(rating)}
                     className="flex-col gap-0"
                   >
-                    <span>{RATING_LABEL[rating]}</span>
-                    <span className="font-mono text-xs font-medium opacity-80">{label}</span>
+                    <span className="text-xs sm:text-sm">{RATING_LABEL[rating]}</span>
+                    <span className="font-mono text-[10px] sm:text-xs font-medium opacity-80">{label}</span>
                   </Button>
                 ))}
               </div>
             ) : (
-              <Button size="lg" className="w-full" onClick={() => setRevealed(true)}>Show answer</Button>
+              <Button size="lg" className="w-full text-sm sm:text-base" onClick={() => setRevealed(true)}>Show answer</Button>
             )}
           </div>
         </Card>
@@ -343,18 +343,18 @@ function Summary({ tally, title, message, learningNote, onCheckAgain, moreCards,
   onStartAnother?: (() => void) | undefined;
 }) {
   return (
-    <Card className="mx-auto max-w-xl p-8 text-center md:p-10">
-      <h1 className="text-4xl">{title}</h1>
-      <p className="mt-3 text-body">{message}</p>
-      {learningNote && <p className="mt-2 text-sm text-muted-foreground">{learningNote}</p>}
+    <Card className="mx-auto max-w-xl p-6 sm:p-8 md:p-10 text-center">
+      <h1 className="text-3xl sm:text-4xl md:text-5xl">{title}</h1>
+      <p className="mt-2 sm:mt-3 text-sm sm:text-base text-body">{message}</p>
+      {learningNote && <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-muted-foreground">{learningNote}</p>}
       {tally.done > 0 && (
-        <div className="mt-8 grid grid-cols-3 gap-3">
+        <div className="mt-6 sm:mt-8 grid grid-cols-3 gap-2 sm:gap-3">
           <Box label="Rated" value={tally.done} />
           <Box label="Again" value={tally.again} />
           <Box label="Mix-ups" value={tally.confused} />
         </div>
       )}
-      <div className="mt-8 flex flex-wrap justify-center gap-3">
+      <div className="mt-6 sm:mt-8 flex flex-wrap justify-center gap-2 sm:gap-3">
         {onStartAnother && <Button size="lg" onClick={onStartAnother}>Next session ({moreCards})</Button>}
         {onCheckAgain && <Button size="lg" variant="surface" onClick={onCheckAgain}>Check again</Button>}
         <Link to="/"><Button size="lg" variant={onStartAnother ? "surface" : "primary"}>Back to today</Button></Link>
@@ -366,9 +366,9 @@ function Summary({ tally, title, message, learningNote, onCheckAgain, moreCards,
 
 function Box({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border-2 border-border bg-background p-4">
-      <p className="font-display text-3xl text-foreground">{value}</p>
-      <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
+    <div className="rounded-lg border-2 border-border bg-background p-2 sm:p-3 md:p-4">
+      <p className="font-display text-2xl sm:text-3xl text-foreground">{value}</p>
+      <p className="font-mono text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
     </div>
   );
 }
