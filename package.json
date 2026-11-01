@@ -9,8 +9,8 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
-    ,"import:apkg": "python scripts/import_apkg.py",
+    "format": "prettier --write .",
+    "import:apkg": "python scripts/import_apkg.py",
     "upload:apkg": "python scripts/upload_apkg.py"
   },
   "overrides": {
@@ -67,6 +67,7 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.1",
+    "ts-fsrs": "^5.4.2",
     "tw-animate-css": "^1.3.4",
     "vaul": "^1.1.2",
     "vite-tsconfig-paths": "^6.0.2",
