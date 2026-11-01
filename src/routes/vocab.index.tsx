@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSrs } from "@/lib/srs";
 import { searchVocabulary } from "@/lib/vocab-search";
 import { confusablesFrom } from "@/lib/vocab";
-import { bundledCatalog, useVocabularyCatalog, useVocabularyCatalogPage } from "@/lib/vocabulary-catalog";
+import { bundledCatalog, useVocabularyCatalog } from "@/lib/vocabulary-catalog";
 
 export const Route = createFileRoute("/vocab/")({
   head: () => ({
@@ -23,26 +23,23 @@ export const Route = createFileRoute("/vocab/")({
 function WordList() {
   const [q, setQ] = useState("");
   const [onlyConfusing, setOnlyConfusing] = useState(false);
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(48);
   const srs = useSrs();
-  const { data: initialData, isFetching: isInitialFetching, isError } = useVocabularyCatalog();
-  const { data: pageData, isFetching: isPageFetching } = useVocabularyCatalogPage(page, pageSize);
-  const isFetching = isInitialFetching || isPageFetching;
-  // Use paginated data if searching is empty, otherwise use full bundled catalog for search accuracy
-  const words = (q || onlyConfusing) ? (initialData ?? bundledCatalog) : (pageData ?? bundledCatalog);
+  const { data, isFetching, isError } = useVocabularyCatalog();
+  const words = data ?? bundledCatalog;
   const results = useMemo(() => {
     return searchVocabulary(words, q, srs)
       .filter((w) => !onlyConfusing || confusablesFrom(w, words));
   }, [q, onlyConfusing, srs, words]);
-  const pageCount = Math.max(1, Math.ceil(Math.max(results.length, 1500) / pageSize));
-  const currentPage = Math.min(page + 1, pageCount);
+  const pageCount = Math.max(1, Math.ceil(results.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
   const list = results.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const resetResults = (nextQuery?: string, nextConfusing?: boolean) => {
     if (nextQuery !== undefined) setQ(nextQuery);
     if (nextConfusing !== undefined) setOnlyConfusing(nextConfusing);
-    setPage(0);
+    setPage(1);
   };
 
   return (
@@ -79,7 +76,7 @@ function WordList() {
         <div className="flex flex-wrap items-center justify-between gap-3 font-mono text-xs text-muted-foreground">
           <p>{results.length.toLocaleString()} matching words · page {currentPage} of {pageCount}</p>
           <label className="flex items-center gap-2">Page size
-            <select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(0); }} className="rounded border border-border bg-card px-2 py-1 text-foreground">
+            <select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }} className="rounded border border-border bg-card px-2 py-1 text-foreground">
               {[24, 48, 96].map((size) => <option key={size} value={size}>{size}</option>)}
             </select>
           </label>
@@ -95,9 +92,9 @@ function WordList() {
         )}
       </div>
       {results.length > 0 && <div className="flex items-center justify-center gap-3">
-        <button type="button" disabled={page === 0} onClick={() => setPage(page - 1)} className="rounded-md border-2 border-border bg-card px-4 py-2 font-bold shadow-hard-sm disabled:cursor-not-allowed disabled:opacity-40">Previous</button>
+        <button type="button" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)} className="rounded-md border-2 border-border bg-card px-4 py-2 font-bold shadow-hard-sm disabled:cursor-not-allowed disabled:opacity-40">Previous</button>
         <span className="font-mono text-sm">{currentPage} / {pageCount}</span>
-        <button type="button" disabled={currentPage === pageCount} onClick={() => setPage(page + 1)} className="rounded-md border-2 border-border bg-card px-4 py-2 font-bold shadow-hard-sm disabled:cursor-not-allowed disabled:opacity-40">Next</button>
+        <button type="button" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)} className="rounded-md border-2 border-border bg-card px-4 py-2 font-bold shadow-hard-sm disabled:cursor-not-allowed disabled:opacity-40">Next</button>
       </div>}
     </div>
   );

@@ -41,27 +41,22 @@ function toWord(row: VocabularyRow): CatalogWord {
   };
 }
 
-async function fetchCatalogPage(page: number, pageSize: number = 200): Promise<CatalogWord[]> {
-  if (!supabase) return bundledCatalog;
-  const start = page * pageSize;
-  const { data, error } = await supabase
-    .from("vocabulary")
-    .select("id,id_number,word,meaning,notes,pitch_accent_raw,pitch_accent_notes,frequency,vocabulary_readings(reading,is_primary),vocabulary_examples(sentence,translation,furigana,sort_order),vocabulary_media(role,sort_order,media_assets(storage_bucket,storage_path,mime_type,status)),vocabulary_relations!vocabulary_relations_vocabulary_id_fkey(relation_type,related_vocabulary_id)")
-    .order("id_number")
-    .range(start, start + pageSize - 1);
-  if (error) throw error;
-  return (data as unknown as VocabularyRow[]).map(toWord);
-}
-
 async function fetchCatalog(): Promise<CatalogWord[]> {
   if (!supabase) return bundledCatalog;
-  // Load first page of 200 items for immediate use, rest loads in background
-  try {
-    const firstPage = await fetchCatalogPage(0, 200);
-    return firstPage.length > 0 ? firstPage : bundledCatalog;
-  } catch {
-    return bundledCatalog;
+  const result: VocabularyRow[] = [];
+  for (let start = 0; ; start += 1000) {
+    const { data, error } = await supabase
+      .from("vocabulary")
+      // Relations have two foreign keys back to vocabulary. Select the source
+      // side explicitly so PostgREST does not reject the embedded query.
+      .select("id,id_number,word,meaning,notes,pitch_accent_raw,pitch_accent_notes,frequency,vocabulary_readings(reading,is_primary),vocabulary_examples(sentence,translation,furigana,sort_order),vocabulary_media(role,sort_order,media_assets(storage_bucket,storage_path,mime_type,status)),vocabulary_relations!vocabulary_relations_vocabulary_id_fkey(relation_type,related_vocabulary_id)")
+      .order("id_number")
+      .range(start, start + 999);
+    if (error) throw error;
+    result.push(...(data as unknown as VocabularyRow[]));
+    if (!data || data.length < 1000) break;
   }
+  return result.length ? result.map(toWord) : bundledCatalog;
 }
 
 /** Shared vocabulary catalogue. Imported Supabase data wins; bundled data remains an offline fallback. */
@@ -72,17 +67,6 @@ export function useVocabularyCatalog() {
     placeholderData: bundledCatalog,
     enabled: isSupabaseConfigured,
     staleTime: 5 * 60_000,
-    retry: 1,
-  });
-}
-
-/** Load a specific page of vocabulary for pagination. */
-export function useVocabularyCatalogPage(page: number, pageSize: number = 200) {
-  return useQuery({
-    queryKey: ["vocabulary-catalog-page", page, pageSize],
-    queryFn: () => fetchCatalogPage(page, pageSize),
-    enabled: isSupabaseConfigured,
-    staleTime: 10 * 60_000,
     retry: 1,
   });
 }
