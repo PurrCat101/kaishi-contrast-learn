@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { HelpCircle } from "lucide-react";
 import { Card, Eyebrow, ProgressBar, Tag } from "@/components/ui-kit";
 import { dueCards, intervalLabel, retrievability, stats, streak, useSrs, DESIRED_RETENTION } from "@/lib/srs";
 import { confusablesFrom } from "@/lib/vocab";
@@ -57,7 +58,12 @@ function Progress() {
 
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-xl">Deck coverage</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl">Deck coverage</h2>
+            <span title="Progress through the 1500-word deck. Green = mature (7+ days). Yellow = young (still learning)." className="flex cursor-help">
+              <HelpCircle className="size-4 text-foreground/50" />
+            </span>
+          </div>
           <span className="font-mono text-sm text-muted-foreground">{st.total} / {catalogue.length} words started</span>
         </div>
         <ProgressBar className="mt-4" value={st.learned} max={catalogue.length} tone="mint" />
@@ -67,17 +73,22 @@ function Progress() {
       <section className="grid gap-6 lg:grid-cols-2">
         <Card>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
+            <div className="flex items-center gap-2">
               <h2 className="text-xl">Review history</h2>
-              <p className="text-sm text-muted-foreground">Last 14 days · max: {maxHist}</p>
+              <span title="How often you reviewed. Red shows proportion of cards you got wrong (Again)." className="flex cursor-help">
+                <HelpCircle className="size-4 text-foreground/50" />
+              </span>
             </div>
-            <button
-              onClick={() => setShowAgain(!showAgain)}
-              className="rounded-full border-2 border-border bg-muted px-3 py-1 text-xs font-semibold uppercase text-foreground transition-colors hover:bg-muted/80"
-              title={showAgain ? "Hide Again count" : "Show Again count"}
-            >
-              {showAgain ? "Hide Again" : "Show Again"}
-            </button>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-sm text-muted-foreground">max: {maxHist}</span>
+              <button
+                onClick={() => setShowAgain(!showAgain)}
+                className="rounded-full border-2 border-border bg-muted px-2 py-1 text-xs font-semibold text-foreground transition-colors hover:bg-muted/80"
+                title={showAgain ? "Hide Again count" : "Show Again count"}
+              >
+                {showAgain ? "✕" : "+"}
+              </button>
+            </div>
           </div>
           <div className="mt-6 flex h-40 items-end gap-1.5">
             {st.history.map((h) => (
@@ -96,10 +107,13 @@ function Progress() {
 
         <Card>
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex items-center gap-2">
               <h2 className="text-xl">Upcoming reviews</h2>
-              <p className="text-sm text-muted-foreground">Next 7 days · max: {maxFc}</p>
+              <span title="Forecast based on your current SRS schedule. Blue = today (priority)." className="flex cursor-help">
+                <HelpCircle className="size-4 text-foreground/50" />
+              </span>
             </div>
+            <span className="font-mono text-sm text-muted-foreground">max: {maxFc}</span>
           </div>
           <div className="mt-6 flex h-40 items-end gap-1.5">
             {st.forecast.map((f, i) => (
@@ -200,8 +214,15 @@ function Progress() {
 
 function Big({ label, value, sub, tone, tooltip }: { label: string; value: number; sub: string; tone: "mint" | "secondary" | "accent" | "info"; tooltip?: string }) {
   return (
-    <Card tone={tone} className="p-5 cursor-help" title={tooltip}>
-      <Eyebrow className="text-foreground/70">{label}</Eyebrow>
+    <Card tone={tone} className="p-5">
+      <div className="flex items-center gap-2">
+        <Eyebrow className="text-foreground/70">{label}</Eyebrow>
+        {tooltip && (
+          <span title={tooltip} className="flex cursor-help">
+            <HelpCircle className="size-4 text-foreground/50" />
+          </span>
+        )}
+      </div>
       <p className="mt-1 font-display text-5xl text-foreground">{value}</p>
       <p className="mt-1 text-sm text-body">{sub}</p>
     </Card>
