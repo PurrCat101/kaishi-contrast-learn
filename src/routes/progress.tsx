@@ -1,8 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { HelpCircle } from "lucide-react";
-import { Card, Eyebrow, ProgressBar, Tag } from "@/components/ui-kit";
-import { dueCards, intervalLabel, retrievability, stats, streak, useSrs, DESIRED_RETENTION } from "@/lib/srs";
+import { useEffect, useMemo, useState } from "react";
+import { CalendarDays, HelpCircle } from "lucide-react";
+import type { DateRange } from "react-day-picker";
+import { Card, Eyebrow, Tag } from "@/components/ui-kit";
+import { BarChart, type Bar } from "@/components/progress-charts";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { dueCards, firstReviewDay, forecastRange, historyRange, intervalLabel, periodStats, retrievability, stats, todayStart, useSrs, DESIRED_RETENTION } from "@/lib/srs";
 import { confusablesFrom } from "@/lib/vocab";
 import { bundledCatalog, useVocabularyCatalog } from "@/lib/vocabulary-catalog";
 import { cn } from "@/lib/utils";
@@ -19,6 +24,14 @@ export const Route = createFileRoute("/progress")({
   component: Progress,
 });
 
+const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
+type Preset = 7 | 14 | 30 | 90 | "all" | "custom";
+const PRESETS: { value: Preset; label: string }[] = [
+  { value: 7, label: "7D" }, { value: 14, label: "14D" }, { value: 30, label: "30D" }, { value: 90, label: "90D" }, { value: "all", label: "All" },
+];
+const pill = (active: boolean) => cn("rounded-full border-2 border-border px-3 py-1 font-mono text-xs font-semibold transition-colors", active ? "bg-primary text-primary-foreground" : "bg-muted text-foreground hover:bg-muted/70");
+
 function Progress() {
   const s = useSrs();
   const { data } = useVocabularyCatalog();
@@ -33,8 +46,74 @@ function Progress() {
 
   const st = stats(s, now);
   const dueNow = dueCards(s, now).length;
-  const maxHist = Math.max(1, ...st.history.map((h) => h.count));
-  const maxFc = Math.max(1, ...st.forecast.map((f) => f.count));
+
+  const today = todayStart(now);
+  const [preset, setPreset] = useState<Preset>(14);
+  const [custom, setCustom] = useState<DateRange | undefined>();
+  const [horizon, setHorizon] = useState(7);
+  // Buttons reflect the selection at once; data follows after a short delay while skeletons show.
+  const [applied, setApplied] = useState<{ preset: Preset; custom: DateRange | undefined; horizon: number }>({ preset: 14, custom: undefined, horizon: 7 });
+  useEffect(() => {
+    const timer = setTimeout(() => setApplied({ preset, custom, horizon }), 350);
+    return () => clearTimeout(timer);
+  }, [preset, custom, horizon]);
+  const rangeLoading = preset !== applied.preset || (preset === "custom" && custom !== applied.custom);
+  const forecastLoading = horizon !== applied.horizon;
+  const dayOf = (date: Date) => Math.min(today, todayStart(date.getTime() + 12 * HOUR));
+  const [from, to] = useMemo(() => {
+    if (applied.preset === "custom" && applied.custom?.from) return [dayOf(applied.custom.from), dayOf(applied.custom.to ?? applied.custom.from)];
+    if (applied.preset === "all") return [Math.min(firstReviewDay(s, now), today - 6 * DAY), today];
+    const n = typeof applied.preset === "number" ? applied.preset : 14;
+    return [today - (n - 1) * DAY, today];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applied.preset, applied.custom, s.log, today]);
+  const spanDays = Math.round((to - from) / DAY) + 1;
+  const bucketDays = spanDays <= 31 ? 1 : spanDays <= 180 ? 7 : 30;
+  const per = periodStats(s, from, to + DAY);
+  const historyBars: Bar[] = useMemo(() => {
+    const days = historyRange(s, from, to);
+    const bars: Bar[] = [];
+    for (let i = 0; i < days.length; i += bucketDays) {
+      const chunk = days.slice(i, i + bucketDays);
+      const value = chunk.reduce((a, d) => a + d.count, 0);
+      const again = chunk.reduce((a, d) => a + d.again, 0);
+      const first = chunk[0]!.day;
+      const last = chunk[chunk.length - 1]!.day;
+      const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      bars.push({
+        key: String(first.getTime()),
+        label: bucketDays === 30 ? first.toLocaleDateString("en-US", { month: "short" }) : fmt(first),
+        value,
+        secondary: again,
+        highlight: last.getTime() === today,
+        tooltip: `${chunk.length > 1 ? `${fmt(first)} – ${fmt(last)}` : first.toLocaleDateString()} · ${value} reviews${again ? `, ${again} again` : ""}`,
+      });
+    }
+    return bars;
+  }, [s.log, from, to, bucketDays, today]);
+  const forecastBars: Bar[] = useMemo(() => {
+    const days = forecastRange(s, now, applied.horizon);
+    const bucket = applied.horizon <= 14 ? 1 : 7;
+    const bars: Bar[] = [];
+    for (let i = 0; i < days.length; i += bucket) {
+      const chunk = days.slice(i, i + bucket);
+      const value = chunk.reduce((a, d) => a + d.count, 0);
+      const first = chunk[0]!.day;
+      const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      bars.push({
+        key: String(first.getTime()),
+        label: i === 0 && bucket === 1 ? "today" : applied.horizon <= 7 ? first.toLocaleDateString("en-US", { weekday: "short" }) : fmt(first),
+        value,
+        highlight: i === 0,
+        tooltip: `${bucket > 1 ? `${fmt(first)} – ${fmt(chunk[chunk.length - 1]!.day)}` : first.toLocaleDateString()} · ${value} due`,
+      });
+    }
+    return bars;
+  }, [s.cards, now, applied.horizon]);
+  const forecastTotal = forecastBars.reduce((a, b) => a + b.value, 0);
+  const rangeLabel = `${new Date(from).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(to).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+  const shortDate = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const customLabel = custom?.from ? (custom.to && custom.to.getTime() !== custom.from.getTime() ? `${shortDate(custom.from)} – ${shortDate(custom.to)}` : shortDate(custom.from)) : "Custom";
   const avgR = (() => {
     const rev = Object.values(s.cards).filter((c) => c.state !== "new");
     return rev.length ? Math.round((rev.reduce((a, c) => a + retrievability(c, now), 0) / rev.length) * 100) : 0;
@@ -66,67 +145,82 @@ function Progress() {
           </div>
           <span className="font-mono text-xs sm:text-sm text-muted-foreground">{st.total} / {catalogue.length} words started</span>
         </div>
-        <ProgressBar className="mt-4" value={st.learned} max={catalogue.length} tone="mint" />
+        <div className="mt-4 flex h-5 overflow-hidden rounded-full border-2 border-border bg-card">
+          <div className="bg-mint" style={{ width: `${(st.learned / Math.max(1, catalogue.length)) * 100}%`, minWidth: st.learned ? 6 : 0 }} />
+          <div className="border-l-2 border-border bg-secondary" style={{ width: `${(st.learning / Math.max(1, catalogue.length)) * 100}%`, minWidth: st.learning ? 6 : 0 }} />
+        </div>
         <p className="mt-2 font-mono text-xs text-muted-foreground">Green = mature ({st.learned}) · Yellow = young ({st.learning})</p>
       </Card>
 
-      <section className="grid grid-cols-1 gap-4 sm:gap-5 md:gap-6 lg:grid-cols-2">
-        <Card className="p-4 sm:p-5 md:p-6">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg sm:text-xl md:text-2xl">Review history</h2>
-              <span title="How often you reviewed. Red shows proportion of cards you got wrong (Again)." className="flex cursor-help">
-                <HelpCircle className="size-4 text-foreground/50" />
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xs sm:text-sm text-muted-foreground">max: {maxHist}</span>
-              <button
-                onClick={() => setShowAgain(!showAgain)}
-                className="rounded-full border-2 border-border bg-muted px-2 py-1 text-xs font-semibold text-foreground transition-colors hover:bg-muted/80"
-                title={showAgain ? "Hide Again count" : "Show Again count"}
-              >
-                {showAgain ? "✕" : "+"}
+      <section className="space-y-4 sm:space-y-5 md:space-y-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="mr-2 text-xl sm:text-2xl md:text-3xl">Activity</h2>
+          {PRESETS.map((p) => (
+            <button key={p.value} onClick={() => setPreset(p.value)} className={pill(preset === p.value)}>{p.label}</button>
+          ))}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className={cn(pill(preset === "custom"), "inline-flex items-center gap-1.5")}>
+                <CalendarDays className="size-3.5" />
+                {preset === "custom" && custom?.from ? customLabel : "Custom"}
               </button>
-            </div>
-          </div>
-          <div className="mt-4 sm:mt-6 flex h-32 sm:h-40 items-end gap-1.5">
-            {st.history.map((h) => (
-              <div key={h.day.toISOString()} className="group flex flex-1 flex-col items-center gap-1" title={`${h.day.toLocaleDateString()} · ${h.count} reviews${h.again ? `, ${h.again} again` : ""}`}>
-                <div className="flex w-full flex-col justify-end overflow-hidden rounded-t-sm border-2 border-b-0 border-border bg-info" style={{ height: `${(h.count / maxHist) * 100}%`, minHeight: h.count ? 6 : 0 }}>
-                  {showAgain && <div className="w-full bg-destructive" style={{ height: `${h.count ? (h.again / h.count) * 100 : 0}%` }} />}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-1 flex justify-between border-t-2 border-border pt-1 font-mono text-[8px] sm:text-[10px] text-muted-foreground">
-            <span>{st.history[0]?.day.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-            <span>today</span>
-          </div>
-        </Card>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-auto p-0">
+              <Calendar
+                mode="range"
+                numberOfMonths={1}
+                selected={custom}
+                defaultMonth={custom?.from ?? new Date(from)}
+                disabled={{ after: new Date(today + 12 * HOUR) }}
+                onSelect={(range) => { setCustom(range); if (range?.from) setPreset("custom"); }}
+              />
+            </PopoverContent>
+          </Popover>
+          <span className="ml-auto font-mono text-xs text-muted-foreground">{rangeLoading ? <Skeleton className="inline-block h-3 w-40 align-middle" /> : `${rangeLabel} · ${spanDays} ${spanDays === 1 ? "day" : "days"}${bucketDays > 1 ? ` · per ${bucketDays === 7 ? "week" : "month"}` : ""}`}</span>
+        </div>
 
-        <Card className="p-4 sm:p-5 md:p-6">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg sm:text-xl md:text-2xl">Upcoming reviews</h2>
-              <span title="Forecast based on your current SRS schedule. Blue = today (priority)." className="flex cursor-help">
-                <HelpCircle className="size-4 text-foreground/50" />
-              </span>
-            </div>
-            <span className="font-mono text-xs sm:text-sm text-muted-foreground">max: {maxFc}</span>
-          </div>
-          <div className="mt-4 sm:mt-6 flex h-32 sm:h-40 items-end gap-1.5">
-            {st.forecast.map((f, i) => (
-              <div key={i} className="flex flex-1 flex-col items-center gap-0.5 sm:gap-1" title={`${f.day.toLocaleDateString()} · ${f.count} due`}>
-                <span className="font-mono text-[10px] sm:text-xs text-foreground">{f.count}</span>
-                <div className={cn("w-full rounded-t-sm border-2 border-b-0 border-border", i === 0 ? "bg-primary" : "bg-secondary")} style={{ height: `${(f.count / maxFc) * 100}%`, minHeight: f.count ? 6 : 0 }} />
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          <Mini loading={rangeLoading} label="Reviews" value={per.reviews} sub={`${(per.reviews / spanDays).toFixed(1)} per day`} />
+          <Mini loading={rangeLoading} label="Accuracy" value={per.accuracy === null ? "—" : `${per.accuracy}%`} sub={`${per.again} marked again`} />
+          <Mini loading={rangeLoading} label="Active days" value={`${per.activeDays}/${spanDays}`} sub="days with a review" />
+          <Mini loading={rangeLoading} label="New words" value={per.newWords} sub="first-time cards" />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:gap-5 md:gap-6 lg:grid-cols-2">
+          <Card className="p-4 sm:p-5 md:p-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg sm:text-xl md:text-2xl">Review history</h2>
+                <span title="How many cards you reviewed. Red shows the share you got wrong (Again). The scale adapts to your range." className="flex cursor-help">
+                  <HelpCircle className="size-4 text-foreground/50" />
+                </span>
               </div>
-            ))}
-          </div>
-          <div className="mt-1 flex justify-between border-t-2 border-border pt-1 font-mono text-[8px] sm:text-[10px] text-muted-foreground">
-            {st.forecast.map((f, i) => <span key={i}>{i === 0 ? "today" : f.day.toLocaleDateString("en-US", { weekday: "short" })}</span>)}
-          </div>
-        </Card>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs sm:text-sm text-muted-foreground">total: {per.reviews}</span>
+                <button onClick={() => setShowAgain(!showAgain)} className={pill(showAgain)} title={showAgain ? "Hide Again share" : "Show Again share"}>Again</button>
+              </div>
+            </div>
+            <BarChart loading={rangeLoading} bars={historyBars} barClass="bg-info" highlightClass="bg-primary" showSecondary={showAgain} empty="No reviews in this range" />
+          </Card>
+
+          <Card className="p-4 sm:p-5 md:p-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg sm:text-xl md:text-2xl">Upcoming reviews</h2>
+                <span title="Forecast from your current SRS schedule. Overdue cards count toward today." className="flex cursor-help">
+                  <HelpCircle className="size-4 text-foreground/50" />
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs sm:text-sm text-muted-foreground">total: {forecastTotal}</span>
+                {[7, 14, 30].map((n) => (
+                  <button key={n} onClick={() => setHorizon(n)} className={pill(horizon === n)}>{n}D</button>
+                ))}
+              </div>
+            </div>
+            <BarChart loading={forecastLoading} bars={forecastBars} barClass="bg-secondary" highlightClass="bg-primary" showSecondary={false} empty="Nothing scheduled yet" />
+          </Card>
+        </div>
       </section>
 
       <section className="grid grid-cols-1 gap-4 sm:gap-5 md:gap-6 lg:grid-cols-[1fr_1.2fr]">
@@ -134,7 +228,7 @@ function Progress() {
           <h2 className="text-lg sm:text-xl md:text-2xl">Memory model</h2>
           <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 font-mono text-xs sm:text-sm">
             <div><dt className="text-foreground/70">Target retention</dt><dd className="font-display text-2xl sm:text-3xl text-foreground">{DESIRED_RETENTION * 100}%</dd></div>
-            <div><dt className="text-foreground/70">Actual (30d)</dt><dd className="font-display text-2xl sm:text-3xl text-foreground">{st.retention}%</dd></div>
+            <div><dt className="text-foreground/70">Actual ({rangeLoading ? "…" : rangeLabel})</dt><dd className="font-display text-2xl sm:text-3xl text-foreground">{rangeLoading ? <Skeleton className="mt-1 h-8 w-16" /> : per.accuracy === null ? "—" : `${per.accuracy}%`}</dd></div>
             <div><dt className="text-foreground/70">Avg recall now</dt><dd className="font-display text-2xl sm:text-3xl text-foreground">{avgR}%</dd></div>
             <div><dt className="text-foreground/70">Contrast groups</dt><dd className="font-display text-2xl sm:text-3xl text-foreground">{catalogue.filter((w) => confusablesFrom(w, catalogue)).length}</dd></div>
           </dl>
@@ -209,6 +303,25 @@ function Progress() {
         </div>
       </section>
     </div>
+  );
+}
+
+function Mini({ label, value, sub, loading }: { label: string; value: number | string; sub: string; loading?: boolean }) {
+  return (
+    <Card className="p-3 sm:p-4">
+      <Eyebrow>{label}</Eyebrow>
+      {loading ? (
+        <>
+          <Skeleton className="mt-2 h-9 w-16 sm:h-10" />
+          <Skeleton className="mt-2 h-3.5 w-24" />
+        </>
+      ) : (
+        <>
+          <p className="mt-1 font-display text-3xl text-foreground sm:text-4xl">{value}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">{sub}</p>
+        </>
+      )}
+    </Card>
   );
 }
 

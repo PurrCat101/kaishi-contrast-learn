@@ -308,3 +308,47 @@ export function stats(s: SrsState, now = Date.now()) {
   const retention = recent.length ? Math.round((recent.filter((entry) => entry.rating > 1).length / recent.length) * 100) : 0;
   return { total: all.length, learned, learning, difficult, upcoming, history, forecast, retention };
 }
+
+/** Day buckets (04:00 boundary) of recall reviews from `fromDay` to `toDay` inclusive; both are day-start timestamps. */
+export function historyRange(s: SrsState, fromDay: number, toDay: number) {
+  const days = Math.max(1, Math.round((toDay - fromDay) / DAY) + 1);
+  const buckets = Array.from({ length: days }, (_, index) => ({ day: new Date(fromDay + index * DAY), count: 0, again: 0, fresh: 0 }));
+  for (const entry of s.log) {
+    if (entry.contrast) continue;
+    const bucket = buckets[Math.floor((entry.t - fromDay) / DAY)];
+    if (!bucket || entry.t < fromDay) continue;
+    bucket.count++;
+    if (entry.rating === 1) bucket.again++;
+    if (entry.prev === "new") bucket.fresh++;
+  }
+  return buckets;
+}
+/** Reviews due per day for `days` days from today; overdue cards count toward today. */
+export function forecastRange(s: SrsState, now: number, days: number) {
+  const today = todayStart(now);
+  const buckets = Array.from({ length: days }, (_, index) => ({ day: new Date(today + index * DAY), count: 0 }));
+  for (const card of Object.values(s.cards)) {
+    if (card.suspended || card.state === "new") continue;
+    const bucket = buckets[Math.max(0, Math.floor((card.due - today) / DAY))];
+    if (bucket) bucket.count++;
+  }
+  return buckets;
+}
+/** Summary of recall and contrast reviews with `fromDay <= t < toExclusive`. */
+export function periodStats(s: SrsState, fromDay: number, toExclusive: number) {
+  const entries = s.log.filter((entry) => entry.t >= fromDay && entry.t < toExclusive);
+  const recall = entries.filter((entry) => !entry.contrast);
+  const contrast = entries.filter((entry) => entry.contrast);
+  const activeDays = new Set(entries.map((entry) => Math.floor((entry.t - fromDay) / DAY))).size;
+  const passed = recall.filter((entry) => entry.rating > 1).length;
+  return {
+    reviews: recall.length,
+    again: recall.length - passed,
+    accuracy: recall.length ? Math.round((passed / recall.length) * 100) : null,
+    activeDays,
+    newWords: recall.filter((entry) => entry.prev === "new").length,
+    contrastTotal: contrast.length,
+    contrastCorrect: contrast.filter((entry) => entry.correct).length,
+  };
+}
+export function firstReviewDay(s: SrsState, now = Date.now()) { return s.log.length ? todayStart(s.log.reduce((min, entry) => Math.min(min, entry.t), Infinity)) : todayStart(now); }
