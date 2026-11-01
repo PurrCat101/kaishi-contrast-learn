@@ -209,7 +209,7 @@ function Header() {
             </Link>
           ))}
           <div className="border-t-2 border-border mt-2 pt-2">
-            {configured && !loading && (
+            {!loading && (
               <>
                 {session ? (
                   <button
@@ -220,7 +220,7 @@ function Header() {
                     className="w-full flex items-center gap-3 rounded-full border-2 border-transparent px-3 py-2 font-bold text-foreground hover:bg-muted transition-colors"
                   >
                     <LogOut className="size-5" />
-                    <span>Sign out</span>
+                    <span>Sign out ({session.user.email?.split("@")[0]})</span>
                   </button>
                 ) : (
                   <button
@@ -231,7 +231,7 @@ function Header() {
                     className="w-full flex items-center gap-3 rounded-full border-2 border-border bg-primary px-3 py-2 font-bold text-primary-foreground hover:shadow-hard-sm transition-all"
                   >
                     <LogIn className="size-5" />
-                    <span>Sign in</span>
+                    <span>Sign in with Google</span>
                   </button>
                 )}
               </>
@@ -258,7 +258,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="flex min-h-screen flex-col">
+      <div className="flex min-h-screen flex-col overflow-x-hidden">
         <Header />
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 md:px-8 md:py-12">
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
