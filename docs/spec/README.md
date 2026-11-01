@@ -1,6 +1,6 @@
 # Spec v2 — Kaishi SRS + Homophone/Homograph Contrast
 
-สถานะ: DRAFT พร้อม implement (แทนที่ `docs/spec.md` เดิมที่ว่าง; `Backend_Specification_Updated.md` เก็บเป็นเอกสารอ้างอิงเก่า)
+สถานะ: DRAFT พร้อม implement
 ไฟล์: [`database.md`](database.md) · [`backend.md`](backend.md) · [`frontend.md`](frontend.md)
 
 ## 1. แนวคิด
