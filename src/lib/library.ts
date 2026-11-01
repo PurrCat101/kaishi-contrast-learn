@@ -16,6 +16,13 @@ const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((listener) => listener());
 const serverSnapshot: LibraryState = {};
 
+// Watch for auth state changes and refresh library when user logs in/out
+if (typeof window !== "undefined" && supabase) {
+  supabase.auth.onAuthStateChange(() => {
+    void hydrateRemoteLibrary();
+  });
+}
+
 function persist() {
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
@@ -140,6 +147,10 @@ export function useLibrary() {
   );
   useEffect(() => { hydrate(); }, []);
   return snapshot;
+}
+
+export async function refreshLibrary() {
+  await hydrateRemoteLibrary();
 }
 
 export function isSaved(id: string) {
