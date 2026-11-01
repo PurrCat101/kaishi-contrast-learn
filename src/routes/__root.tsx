@@ -4,16 +4,18 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { BarChart3, BookMarked, BookOpen, Home, LogIn, LogOut, Settings2, Shuffle } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { useAuth } from "../lib/auth";
 import { Button } from "../components/ui-kit";
+import { cn } from "../lib/utils";
 
 function NotFoundComponent() {
   return (
@@ -115,6 +117,11 @@ const nav = [
 
 function Header() {
   const { session, loading, configured, signInWithGoogle, signOut } = useAuth();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  // Highlight the clicked tab straight away; the route may still be loading behind a transition.
+  const [clicked, setClicked] = useState<string | null>(null);
+  useEffect(() => setClicked(null), [pathname]);
+  const activePath = clicked ?? pathname;
 
   return (
     <header className="sticky top-0 z-20 border-b-2 border-border bg-background/90 backdrop-blur">
@@ -125,14 +132,17 @@ function Header() {
           <span className="hidden font-mono text-[10px] sm:text-xs uppercase tracking-widest text-muted-foreground sm:inline">Kaishi 1.5k</span>
         </Link>
         <div className="flex items-center gap-1 sm:gap-2">
-          <nav className="flex min-w-0 items-center gap-1 overflow-hidden" aria-label="Main">
+          <nav className="flex min-w-0 items-center gap-1 overflow-hidden -my-1 py-1 pr-1" aria-label="Main">
             {nav.map(({ to, label, icon: Icon }) => (
               <Link
                 key={to}
                 to={to}
-                className="flex min-h-10 sm:min-h-11 items-center gap-1 sm:gap-2 rounded-full border-2 border-transparent px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 font-bold text-sm md:text-base text-foreground no-underline transition-colors hover:bg-muted whitespace-nowrap"
-                activeProps={{ className: "border-border bg-secondary shadow-hard-sm" }}
-                activeOptions={{ exact: true }}
+                onClick={() => setClicked(to)}
+                aria-current={activePath === to ? "page" : undefined}
+                className={cn(
+                  "flex min-h-10 sm:min-h-11 items-center gap-1 sm:gap-2 rounded-full border-2 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 font-bold text-sm md:text-base text-foreground no-underline transition-colors whitespace-nowrap",
+                  activePath === to ? "border-border bg-secondary shadow-hard-sm" : "border-transparent hover:bg-muted",
+                )}
               >
                 <Icon className="size-4" />
                 <span className="hidden sm:inline">{label}</span>
