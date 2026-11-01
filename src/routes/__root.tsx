@@ -8,7 +8,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BarChart3, BookMarked, BookOpen, Home, LogIn, LogOut, Settings2, Shuffle } from "lucide-react";
 
 import appCss from "../styles.css?url";
@@ -190,6 +190,16 @@ function Header() {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const { session, loading } = useAuth();
+  const userId = session?.user.id ?? null;
+  const seenUser = useRef<string | null | undefined>(undefined);
+  // Vocabulary fetched under a previous identity (signed out, or an expired token) may have failed or come back partial.
+  useEffect(() => {
+    if (loading) return;
+    const changed = seenUser.current !== undefined && seenUser.current !== userId;
+    seenUser.current = userId;
+    if (changed) void queryClient.invalidateQueries({ predicate: (query) => String(query.queryKey[0]).startsWith("vocabulary") });
+  }, [queryClient, userId, loading]);
 
   return (
     <QueryClientProvider client={queryClient}>

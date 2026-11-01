@@ -105,6 +105,11 @@ const antonymPairs: [string, string][] = [
   ["朝", "夜"], ["簡単", "難しい"], ["同じ", "違う"], ["忙しい", "暇"],
 ];
 
+/** Spellings paired with `spelling` as antonyms. */
+export function antonymSpellingsOf(spelling: string): string[] {
+  return antonymPairs.flatMap(([a, b]) => (a === spelling ? [b] : b === spelling ? [a] : []));
+}
+
 export function antonymsOf(w: Word): Word[] {
   const out: Word[] = [];
   for (const [a, b] of antonymPairs) {

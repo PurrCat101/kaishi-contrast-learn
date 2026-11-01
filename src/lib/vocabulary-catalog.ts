@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { isSupabaseConfigured, supabase } from "./supabase";
 import { words as bundledWords, type Word } from "./vocab";
 
@@ -41,6 +41,8 @@ function toWord(row: VocabularyRow): CatalogWord {
   };
 }
 
+const FULL_SELECT = "id,id_number,word,meaning,notes,pitch_accent_raw,pitch_accent_notes,frequency,vocabulary_readings(reading,is_primary),vocabulary_examples(sentence,translation,furigana,sort_order),vocabulary_media(role,sort_order,media_assets(storage_bucket,storage_path,mime_type,status)),vocabulary_relations!vocabulary_relations_vocabulary_id_fkey(relation_type,related_vocabulary_id)";
+
 async function fetchCatalog(): Promise<CatalogWord[]> {
   if (!supabase) return bundledCatalog;
   const result: VocabularyRow[] = [];
@@ -49,7 +51,7 @@ async function fetchCatalog(): Promise<CatalogWord[]> {
       .from("vocabulary")
       // Relations have two foreign keys back to vocabulary. Select the source
       // side explicitly so PostgREST does not reject the embedded query.
-      .select("id,id_number,word,meaning,notes,pitch_accent_raw,pitch_accent_notes,frequency,vocabulary_readings(reading,is_primary),vocabulary_examples(sentence,translation,furigana,sort_order),vocabulary_media(role,sort_order,media_assets(storage_bucket,storage_path,mime_type,status)),vocabulary_relations!vocabulary_relations_vocabulary_id_fkey(relation_type,related_vocabulary_id)")
+      .select(FULL_SELECT)
       .order("id_number")
       .range(start, start + 999);
     if (error) throw error;
@@ -59,13 +61,118 @@ async function fetchCatalog(): Promise<CatalogWord[]> {
   return result.length ? result.map(toWord) : bundledCatalog;
 }
 
+type CatalogPage = { words: CatalogWord[]; total: number };
+
+/** Fetches just one page with the few columns the word list renders. */
+async function fetchCatalogPage(page: number, pageSize: number): Promise<CatalogPage> {
+  const fallback = () => ({ words: bundledCatalog.slice((page - 1) * pageSize, page * pageSize), total: bundledCatalog.length });
+  if (!supabase) return fallback();
+  const start = (page - 1) * pageSize;
+  const { data, error, count } = await supabase
+    .from("vocabulary")
+    .select("id,id_number,word,meaning,vocabulary_readings(reading,is_primary)", { count: "exact" })
+    .order("id_number")
+    .range(start, start + pageSize - 1);
+  if (error) throw error;
+  if (!count) return fallback();
+  return { words: (data as unknown as VocabularyRow[]).map(toWord), total: count };
+}
+
+/** One page of the catalogue, fetched on demand. Use for unfiltered browsing; searches need the full catalogue. */
+export function useVocabularyCatalogPage(page: number, pageSize: number, enabled = true) {
+  return useQuery({
+    queryKey: ["vocabulary-catalog-page", page, pageSize],
+    queryFn: () => fetchCatalogPage(page, pageSize),
+    placeholderData: keepPreviousData,
+    enabled: isSupabaseConfigured && enabled,
+    staleTime: 5 * 60_000,
+    retry: 1,
+  });
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+async function fetchWordsByIds(ids: string[]): Promise<CatalogWord[]> {
+  const bundled = bundledCatalog.filter((word) => ids.includes(word.id));
+  const remoteIds = ids.filter((id) => UUID.test(id));
+  if (!supabase || !remoteIds.length) return bundled;
+  const chunks: string[][] = [];
+  for (let i = 0; i < remoteIds.length; i += 100) chunks.push(remoteIds.slice(i, i + 100));
+  const rows = await Promise.all(chunks.map(async (chunk) => {
+    const { data, error } = await supabase!
+      .from("vocabulary")
+      .select("id,id_number,word,meaning,vocabulary_readings(reading,is_primary)")
+      .in("id", chunk);
+    if (error) throw error;
+    return data as unknown as VocabularyRow[];
+  }));
+  return [...bundled, ...rows.flat().map(toWord)];
+}
+
+/** Only the given words, with the columns a word chip needs. Much cheaper than the full catalogue. */
+export function useVocabularyWords(ids: string[], enabled = true) {
+  const key = [...ids].sort();
+  return useQuery({
+    queryKey: ["vocabulary-words", key],
+    queryFn: () => fetchWordsByIds(key),
+    placeholderData: keepPreviousData,
+    enabled,
+    staleTime: 5 * 60_000,
+    retry: 1,
+  });
+}
+
+async function fetchWordByNumber(idNumber: number): Promise<CatalogWord | null> {
+  const bundled = bundledCatalog.find((word) => word.idNumber === idNumber) ?? null;
+  if (!supabase) return bundled;
+  const { data, error } = await supabase.from("vocabulary").select(FULL_SELECT).eq("id_number", idNumber).maybeSingle();
+  if (error) throw error;
+  return data ? toWord(data as unknown as VocabularyRow) : bundled;
+}
+
+/** One word with its media and relation ids. The detail page needs this, not the whole catalogue. */
+export function useVocabularyWord(idNumber: number) {
+  return useQuery({
+    queryKey: ["vocabulary-word", idNumber],
+    queryFn: () => fetchWordByNumber(idNumber),
+    enabled: Number.isFinite(idNumber),
+    staleTime: 5 * 60_000,
+    retry: 2,
+  });
+}
+
+async function fetchWordsBySpelling(spellings: string[]): Promise<CatalogWord[]> {
+  const bundled = bundledCatalog.filter((word) => spellings.includes(word.word));
+  if (!supabase || !spellings.length) return bundled;
+  const { data, error } = await supabase
+    .from("vocabulary")
+    .select("id,id_number,word,meaning,vocabulary_readings(reading,is_primary)")
+    .in("word", spellings);
+  if (error) throw error;
+  const remote = (data as unknown as VocabularyRow[]).map(toWord);
+  return remote.length ? remote : bundled;
+}
+
+/** Words looked up by spelling (used for antonym pairs, which are defined by spelling). */
+export function useVocabularyBySpelling(spellings: string[], enabled = true) {
+  const key = [...spellings].sort();
+  return useQuery({
+    queryKey: ["vocabulary-spelling", key],
+    queryFn: () => fetchWordsBySpelling(key),
+    placeholderData: keepPreviousData,
+    enabled,
+    staleTime: 5 * 60_000,
+    retry: 2,
+  });
+}
+
 /** Shared vocabulary catalogue. Imported Supabase data wins; bundled data remains an offline fallback. */
-export function useVocabularyCatalog() {
+export function useVocabularyCatalog(enabled = true) {
   return useQuery({
     queryKey: ["vocabulary-catalog"],
     queryFn: fetchCatalog,
     placeholderData: bundledCatalog,
-    enabled: isSupabaseConfigured,
+    enabled: isSupabaseConfigured && enabled,
     staleTime: 5 * 60_000,
     retry: 1,
   });

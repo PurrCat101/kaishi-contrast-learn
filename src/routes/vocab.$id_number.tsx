@@ -6,8 +6,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { removeWord, saveWord, updateNote, useLibrary } from "@/lib/library";
 import { getCard, intervalLabel, retrievability, useSrs } from "@/lib/srs";
 import { useAuth } from "@/lib/auth";
-import { relatedFrom, type Word } from "@/lib/vocab";
-import { bundledCatalog, signedMediaUrl, useVocabularyCatalog } from "@/lib/vocabulary-catalog";
+import { antonymSpellingsOf, type Word } from "@/lib/vocab";
+import { signedMediaUrl, useVocabularyBySpelling, useVocabularyWord, useVocabularyWords } from "@/lib/vocabulary-catalog";
 
 export const Route = createFileRoute("/vocab/$id_number")({
   head: () => ({ meta: [{ title: "Vocabulary — Hashi" }] }),
@@ -16,9 +16,10 @@ export const Route = createFileRoute("/vocab/$id_number")({
 
 function Detail() {
   const { id_number } = Route.useParams();
-  const { data, isFetching } = useVocabularyCatalog();
-  const catalogue = data ?? bundledCatalog;
-  const w = catalogue.find((word) => word.idNumber === Number(id_number));
+  const { data: w, isPending, isError, refetch } = useVocabularyWord(Number(id_number));
+  const relatedIds = w ? [...new Set([...w.homophones, ...w.sharedKanji, ...w.similarMeaning])] : [];
+  const related = useVocabularyWords(relatedIds, Boolean(w));
+  const antonymWords = useVocabularyBySpelling(w ? antonymSpellingsOf(w.word) : [], Boolean(w));
   useSrs();
   const library = useLibrary();
   const { session } = useAuth();
@@ -34,7 +35,7 @@ function Detail() {
   }, [library, w]);
 
   if (!w) {
-    if (isFetching) {
+    if (isPending) {
       return (
         <div className="space-y-8">
           <Link to="/vocab" className="inline-flex items-center gap-2 font-mono text-sm text-muted-foreground no-underline hover:text-foreground">
@@ -60,12 +61,33 @@ function Detail() {
         </div>
       );
     }
-    return <div className="space-y-3"><Link to="/vocab" className="font-mono text-sm text-muted-foreground">← All words</Link><p className="card-hard p-6 text-body">This vocabulary entry was not found.</p></div>;
+    return (
+      <div className="space-y-3">
+        <Link to="/vocab" className="font-mono text-sm text-muted-foreground">← All words</Link>
+        <p className="card-hard p-6 text-body">
+          {isError ? "This word didn't load." : "This vocabulary entry was not found."}
+          {isError && <Button className="ml-3" onClick={() => void refetch()}>Try again</Button>}
+        </p>
+      </div>
+    );
   }
 
   const saved = Boolean(library[w.id]);
   const c = getCard(w.id);
-  const rel = relatedFrom(w, catalogue);
+  // Related words are fetched by id, so a stale previous word's list must not be shown for this one.
+  const relatedLoading = related.isPending || related.isPlaceholderData || antonymWords.isPending || antonymWords.isPlaceholderData;
+  const relatedError = (related.isError || antonymWords.isError) && !relatedLoading;
+  const pick = (ids: string[], pool: Word[] | undefined) => {
+    const lookup = new Map((pool ?? []).map((word) => [word.id, word]));
+    return ids.map((id) => lookup.get(id)).filter((word): word is Word => Boolean(word) && word!.id !== w.id);
+  };
+  const rel = {
+    homophones: pick(w.homophones, related.data),
+    sharedKanji: pick(w.sharedKanji, related.data),
+    similarMeaning: pick(w.similarMeaning, related.data),
+    antonyms: (antonymWords.data ?? []).filter((word) => word.id !== w.id),
+  };
+  const retryRelated = () => { void related.refetch(); void antonymWords.refetch(); };
   const now = Date.now();
   const r = Math.round(retrievability(c, now) * 100);
 
@@ -153,10 +175,10 @@ function Detail() {
       </section>
 
       <section className="grid gap-6 md:grid-cols-2">
-        <Group title="Homophones" hint="Same sound, different word" tone="accent" list={rel.homophones} />
-        <Group title="Commonly confused" hint="Shares a kanji or looks alike" tone="secondary" list={rel.sharedKanji} />
-        <Group title="Similar meanings" hint="Easy to swap in translation" tone="info" list={rel.similarMeaning} />
-        <Group title="Antonyms" hint="Learn them as a pair" tone="mint" list={rel.antonyms} />
+        <Group title="Homophones" hint="Same sound, different word" tone="accent" list={rel.homophones} loading={relatedLoading} error={relatedError} onRetry={retryRelated} />
+        <Group title="Commonly confused" hint="Shares a kanji or looks alike" tone="secondary" list={rel.sharedKanji} loading={relatedLoading} error={relatedError} onRetry={retryRelated} />
+        <Group title="Similar meanings" hint="Easy to swap in translation" tone="info" list={rel.similarMeaning} loading={relatedLoading} error={relatedError} onRetry={retryRelated} />
+        <Group title="Antonyms" hint="Learn them as a pair" tone="mint" list={rel.antonyms} loading={relatedLoading} error={relatedError} onRetry={retryRelated} />
       </section>
     </div>
   );
@@ -171,16 +193,25 @@ function Row({ k, v }: { k: string; v: string }) {
   );
 }
 
-function Group({ title, hint, tone, list }: { title: string; hint: string; tone: "accent" | "secondary" | "info" | "mint"; list: Word[] }) {
+function Group({ title, hint, tone, list, loading, error, onRetry }: { title: string; hint: string; tone: "accent" | "secondary" | "info" | "mint"; list: Word[]; loading: boolean; error: boolean; onRetry: () => void }) {
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-xl">{title}</h2>
-        <Tag tone={tone}>{list.length}</Tag>
+        {loading ? <Skeleton className="h-6 w-8 rounded-full" /> : <Tag tone={tone}>{list.length}</Tag>}
       </div>
       <p className="mt-1 text-sm text-muted-foreground">{hint}</p>
       <div className="mt-4 space-y-2">
-        {list.length === 0 ? (
+        {loading ? (
+          <>
+            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-11 w-full" />
+          </>
+        ) : error ? (
+          <p className="rounded-md border-2 border-dashed border-border/40 p-3 text-center font-mono text-xs text-muted-foreground">
+            couldn't load · <button onClick={onRetry} className="underline">retry</button>
+          </p>
+        ) : list.length === 0 ? (
           <p className="rounded-md border-2 border-dashed border-border/40 p-3 text-center font-mono text-xs text-muted-foreground">none in this deck</p>
         ) : (
           list.map((x) => <WordChip key={x.id} w={x} />)
