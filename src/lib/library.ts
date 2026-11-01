@@ -7,7 +7,7 @@ export type PersonalWord = {
   note: string;
 };
 
-export type LibraryState = Record<number, PersonalWord>;
+export type LibraryState = Record<string, PersonalWord>;
 
 const KEY = "kaishi-contrast-library-v1";
 let state: LibraryState = {};
@@ -36,9 +36,12 @@ async function getAuthenticatedUserId() {
   return user.id;
 }
 
-async function lookupVocabularyIdForWord(wordId: number) {
+async function lookupVocabularyIdForWord(wordId: string) {
+  if (!supabase) return null;
+  // Imported vocabulary uses its UUID directly. Bundled/offline cards are resolved by word.
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(wordId)) return wordId;
   const word = getWord(wordId);
-  if (!word || !supabase) return null;
+  if (!word) return null;
   const { data, error } = await supabase
     .from("vocabulary")
     .select("id")
@@ -78,16 +81,6 @@ async function hydrateRemoteLibrary() {
     return;
   }
 
-  const { data: vocabularyRows, error: vocabularyError } = await supabase
-    .from("vocabulary")
-    .select("id, word")
-    .in("id", vocabularyIds);
-
-  if (vocabularyError) {
-    console.error("Failed to resolve vocabulary rows", vocabularyError);
-    return;
-  }
-
   const { data: notesRows, error: notesError } = await supabase
     .from("user_notes")
     .select("vocabulary_id, content")
@@ -105,11 +98,7 @@ async function hydrateRemoteLibrary() {
 
   const nextState: LibraryState = {};
   for (const row of savedRows ?? []) {
-    const vocab = (vocabularyRows ?? []).find((item) => item.id === row.vocabulary_id);
-    const localWord = vocab ? Array.from({ length: 1500 }, (_, index) => index).find((index) => getWord(index)?.word === vocab.word) : undefined;
-    if (localWord === undefined) continue;
-
-    nextState[localWord] = {
+    nextState[row.vocabulary_id] = {
       addedAt: Date.parse((row.added_at as string | null) ?? new Date().toISOString()),
       note: noteMap.get(row.vocabulary_id) ?? "",
     };
@@ -153,11 +142,11 @@ export function useLibrary() {
   return snapshot;
 }
 
-export function isSaved(id: number) {
+export function isSaved(id: string) {
   return Boolean(state[id]);
 }
 
-export async function saveWord(id: number) {
+export async function saveWord(id: string) {
   if (!state[id]) state = { ...state, [id]: { addedAt: Date.now(), note: "" } };
   persist();
   emit();
@@ -176,7 +165,7 @@ export async function saveWord(id: number) {
   }
 }
 
-export async function removeWord(id: number) {
+export async function removeWord(id: string) {
   if (!state[id]) return;
   const next = { ...state };
   delete next[id];
@@ -207,7 +196,7 @@ export async function removeWord(id: number) {
   if (noteError) console.error("Failed to remove note from user_notes", noteError);
 }
 
-export async function updateNote(id: number, note: string) {
+export async function updateNote(id: string, note: string) {
   if (!state[id]) return;
   state = { ...state, [id]: { ...state[id], note } };
   persist();
