@@ -1,20 +1,23 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Check, Sparkles, X } from "lucide-react";
-import { useMemo, useState } from "react";
-import { AudioButton, Button, Card, Eyebrow, Furigana, Illustration, ProgressBar, Tag } from "@/components/ui-kit";
+import { useEffect, useMemo, useState } from "react";
+import { AudioButton, Button, Card, Eyebrow, Furigana, ProgressBar, Tag } from "@/components/ui-kit";
 import {
+  LEARN_AHEAD_MS,
   RATING_LABEL,
-  blankCard,
-  dueCards,
   getCard,
-  newCards,
+  intervalLabel,
+  newRemainingToday,
+  planSession,
   previewIntervals,
   rate,
   recordContrast,
   useSrs,
+  type CardMemory,
   type Rating,
 } from "@/lib/srs";
-import { confusablesOf, getWord, type Word } from "@/lib/vocab";
+import { confusablesFrom, type Word } from "@/lib/vocab";
+import { bundledCatalog, signedMediaUrl, useVocabularyCatalog } from "@/lib/vocabulary-catalog";
 
 export const Route = createFileRoute("/review")({
   head: () => ({
@@ -28,41 +31,121 @@ export const Route = createFileRoute("/review")({
   component: Review,
 });
 
-type Step = { id: number; contrast: boolean };
+type Mode = "recall" | "contrast";
+/**
+ * `queue` is fixed when the session starts. Cards answered in this session that are
+ * still in learning/relearning wait in `pending` until their FSRS step is due.
+ */
+type Session = { queue: string[]; pos: number; pending: Record<string, number>; current: string | null; mode: Mode; done: number; again: number; confused: number };
+
+function pickNext(session: Session, catalogueById: Map<string, Word>, catalogue: Word[], now = Date.now()): Session {
+  const pending = Object.entries(session.pending).sort((a, b) => a[1] - b[1]);
+  const modeFor = (id: string): Mode => {
+    const word = catalogueById.get(id);
+    // Contrast checks are for words already learned; new and learning words are shown as recall cards.
+    return word && getCard(id).state === "review" && confusablesFrom(word, catalogue) ? "contrast" : "recall";
+  };
+  const dueLearning = pending.find(([, due]) => due <= now);
+  if (dueLearning) return { ...session, current: dueLearning[0], mode: modeFor(dueLearning[0]) };
+  let pos = session.pos;
+  while (pos < session.queue.length) {
+    const id = session.queue[pos]!;
+    pos++;
+    if (!getCard(id).suspended && !(id in session.pending)) return { ...session, pos, current: id, mode: modeFor(id) };
+  }
+  // Nothing else left: show a learning card early if it is due soon (Anki's learn-ahead).
+  const ahead = pending.find(([, due]) => due <= now + LEARN_AHEAD_MS);
+  return { ...session, pos, current: ahead ? ahead[0] : null, mode: ahead ? modeFor(ahead[0]) : "recall" };
+}
 
 function Review() {
   const s = useSrs();
-  const [i, setI] = useState(0);
+  const { data, isFetching } = useVocabularyCatalog();
+  const catalogue = data ?? bundledCatalog;
+  const catalogueById = useMemo(() => new Map(catalogue.map((word) => [word.id, word])), [catalogue]);
+  const [session, setSession] = useState<Session | null>(null);
   const [revealed, setRevealed] = useState(false);
-  const [pick, setPick] = useState<number | null>(null);
-  const [tally, setTally] = useState({ done: 0, again: 0, confused: 0 });
+  const [pick, setPick] = useState<string | null>(null);
 
-  // Queue is built once per session from the store snapshot.
-  const queue = useMemo<Step[]>(() => {
-    const due = dueCards(s).map((c) => c.id);
-    const fresh = newCards(s).map((c) => c.id);
-    const ids = [...fresh.slice(0, 4), ...due, ...fresh.slice(4)].slice(0, 30);
-    return ids.map((id) => ({ id, contrast: !!confusablesOf(getWord(id)!) && Math.random() < 0.55 }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Build the queue once, after both the saved state and the catalogue are ready.
+  // Later state changes (each rating) must not rebuild it.
+  useEffect(() => {
+    if (session || !s.hydrated || s.loadError || isFetching) return;
+    const plan = planSession(s, catalogue);
+    setSession(pickNext({ queue: plan.ids, pos: 0, pending: {}, current: null, mode: "recall", done: 0, again: 0, confused: 0 }, catalogueById, catalogue));
+  }, [session, s, catalogue, catalogueById, isFetching]);
 
-  const step = queue[i];
-  const word = step ? getWord(step.id) : undefined;
+  const word = session?.current ? catalogueById.get(session.current) : undefined;
+  const [wordAudio, setWordAudio] = useState<string>();
+  const [sentenceAudio, setSentenceAudio] = useState<string>();
+  useEffect(() => {
+    setWordAudio(undefined); setSentenceAudio(undefined);
+    if (!word || !("media" in word)) return;
+    let cancelled = false;
+    void Promise.all([signedMediaUrl(word, "WORD_AUDIO"), signedMediaUrl(word, "SENTENCE_AUDIO")]).then(([wordUrl, sentenceUrl]) => {
+      if (!cancelled) { setWordAudio(wordUrl); setSentenceAudio(sentenceUrl); }
+    });
+    return () => { cancelled = true; };
+  }, [word]);
+
+  if (s.loadError) {
+    return <Card className="mx-auto max-w-xl p-8 text-center text-body" role="alert">{s.loadError}</Card>;
+  }
+  if (!session) {
+    return <Card className="mx-auto max-w-xl p-8 text-center text-muted-foreground">Preparing your review queue…</Card>;
+  }
 
   const advance = () => {
     setRevealed(false);
     setPick(null);
-    setI((n) => n + 1);
+    setSession((current) => current && pickNext(current, catalogueById, catalogue));
+  };
+  const answered = (id: string, updated: CardMemory, again: boolean, confused: boolean) => {
+    setSession((current) => {
+      if (!current) return current;
+      const pending = { ...current.pending };
+      if (!updated.suspended && (updated.state === "learning" || updated.state === "relearning")) pending[id] = updated.due;
+      else delete pending[id];
+      return { ...current, pending, done: current.done + 1, again: current.again + (again ? 1 : 0), confused: current.confused + (confused ? 1 : 0) };
+    });
   };
 
-  if (!step || !word) return <Summary tally={tally} total={queue.length} />;
+  if (!session.current || !word) {
+    const plan = planSession(s, catalogue);
+    const pendingDue = Object.values(session.pending).sort((a, b) => a - b)[0];
+    const firstSession = session.done === 0 && session.queue.length === 0;
+    return (
+      <Summary
+        tally={session}
+        title={firstSession ? (newRemainingToday(s) === 0 ? "All done for today! 🎉" : "Nothing due right now") : "Session complete"}
+        message={firstSession
+          ? newRemainingToday(s) === 0
+            ? `You've introduced all ${s.newPerDay} new words for today and nothing is due. Come back tomorrow, or raise the limit in Settings.`
+            : "Nothing is due right now — come back later or browse the deck."
+          : "Nice work. Your schedule is updated."}
+        learningNote={pendingDue ? `${Object.keys(session.pending).length} card(s) still in learning — next one in ${intervalLabel(pendingDue - Date.now())}.` : undefined}
+        onCheckAgain={pendingDue ? advance : undefined}
+        moreCards={plan.ids.length}
+        onStartAnother={plan.ids.length ? () => setSession(pickNext({ queue: plan.ids, pos: 0, pending: session.pending, current: null, mode: "recall", done: 0, again: 0, confused: 0 }, catalogueById, catalogue)) : undefined}
+      />
+    );
+  }
 
-  const card = getCard(step.id);
-  const conf = confusablesOf(word);
+  const card = getCard(word.id);
+  const conf = confusablesFrom(word, catalogue);
+  const mode: Mode = session.mode === "contrast" && conf ? "contrast" : "recall";
+
+  // Remaining counts, Anki style: new / learning / review (including the current card).
+  const rest = [...session.queue.slice(session.pos), ...(session.current in session.pending ? [] : [session.current])]
+    .filter((id) => !(id in session.pending) && !getCard(id).suspended);
+  const remainingNew = rest.filter((id) => getCard(id).state === "new").length;
+  const remainingReview = rest.filter((id) => getCard(id).state === "review").length;
+  const remainingLearning = rest.length - remainingNew - remainingReview + Object.keys(session.pending).length;
+  const remaining = rest.length + Object.keys(session.pending).length;
 
   const onRate = (r: Rating) => {
-    rate(word.id, r);
-    setTally((t) => ({ ...t, done: t.done + 1, again: t.again + (r === 1 ? 1 : 0) }));
+    const updated = rate(word.id, r);
+    answered(word.id, updated, r === 1, false);
     advance();
   };
 
@@ -71,7 +154,8 @@ function Review() {
     setPick(w.id);
     const correct = w.id === word.id;
     recordContrast(word.id, correct);
-    setTally((t) => ({ ...t, confused: t.confused + (correct ? 0 : 1) }));
+    const updated = rate(word.id, correct ? 3 : 1);
+    answered(word.id, updated, !correct, !correct);
   };
 
   const options = conf ? shuffle([word, ...conf.words.slice(0, 2)], word.id) : [word];
@@ -80,23 +164,31 @@ function Review() {
     <div className="space-y-6">
       <header className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Eyebrow>Card {i + 1} of {queue.length}</Eyebrow>
+          <div className="flex flex-wrap items-center gap-2">
+            <Eyebrow>Card {session.done + 1} of {session.done + remaining}</Eyebrow>
             {card.state === "new" && <Tag tone="mint">New</Tag>}
-            {step.contrast && conf && <Tag tone="accent">Contrast · {conf.kind}</Tag>}
+            {(card.state === "learning" || card.state === "relearning") && <Tag tone="secondary">{card.state === "learning" ? "Learning" : "Relearning"}</Tag>}
+            {mode === "contrast" && conf && <Tag tone="accent">{conf.kind}</Tag>}
           </div>
-          <Link to="/" className="font-mono text-sm text-muted-foreground no-underline hover:text-foreground">End session</Link>
+          <div className="flex items-center gap-4">
+            <span className="flex gap-1" aria-label="Cards remaining">
+              <Tag tone="info">{remainingNew} new</Tag>
+              <Tag tone="destructive">{remainingLearning} learning</Tag>
+              <Tag tone="mint">{remainingReview} review</Tag>
+            </span>
+            <Link to="/" className="font-mono text-sm text-muted-foreground no-underline hover:text-foreground">End session</Link>
+          </div>
         </div>
-        <ProgressBar value={i} max={queue.length} />
+        <ProgressBar value={session.done} max={session.done + remaining} />
       </header>
 
-      {step.contrast && conf ? (
+      {mode === "contrast" && conf ? (
         <Card className="p-6 text-center md:p-10">
           <Eyebrow>Which word means this?</Eyebrow>
           <p className="mt-2 text-3xl md:text-4xl">{word.meaning}</p>
           <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
             <span lang="ja" className="font-jp text-xl text-muted-foreground">reading: {word.reading}</span>
-            <AudioButton text={word.word} />
+            <AudioButton text={word.word} src={wordAudio} />
           </div>
 
           <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -127,7 +219,7 @@ function Review() {
           </div>
 
           {pick !== null && (
-              <div className="mt-6 space-y-4 text-left">
+            <div className="mt-6 space-y-4 text-left">
               <div className="rounded-lg border-2 border-border bg-secondary p-5">
                 <Eyebrow className="text-foreground/70">Tell them apart</Eyebrow>
                 <p className="mt-2 whitespace-pre-line text-body">{word.notes || `${word.word} = ${word.meaning}.`}</p>
@@ -150,7 +242,7 @@ function Review() {
             {revealed && <p lang="ja" className="mt-2 font-jp text-2xl text-muted-foreground">{word.reading}</p>}
 
             <div className="mt-5 flex justify-center">
-              <AudioButton text={word.word} size="md" label={`Listen to ${word.word}`} />
+              <AudioButton text={word.word} src={wordAudio} size="md" label={`Listen to ${word.word}`} />
             </div>
 
             <div className="mt-8 border-y-2 border-dashed border-border/50 py-6">
@@ -170,11 +262,9 @@ function Review() {
                 </div>
 
                 <div className="flex flex-wrap justify-center gap-3">
-                  <AudioButton text={word.word} size="md" label={`Listen to the word ${word.word}`} buttonText="Word" />
-                  <AudioButton text={word.sentence} size="md" label="Listen to the example sentence" buttonText="Sentence" />
+                  <AudioButton text={word.word} src={wordAudio} size="md" label={`Listen to the word ${word.word}`} buttonText="Word" />
+                  <AudioButton text={word.sentence} src={sentenceAudio} size="md" label="Listen to the example sentence" buttonText="Sentence" />
                 </div>
-
-                <Illustration w={word} className="mx-auto w-full max-w-sm" />
 
                 <div className="space-y-2">
                   <Eyebrow>English translation</Eyebrow>
@@ -198,7 +288,7 @@ function Review() {
                   </div>
                 )}
 
-                <Link to="/vocab/$id" params={{ id: String(word.id) }} className="inline-block font-mono text-sm text-muted-foreground no-underline hover:text-foreground">
+                <Link to="/vocab/$id_number" params={{ id_number: String(word.idNumber) }} className="inline-block font-mono text-sm text-muted-foreground no-underline hover:text-foreground">
                   Open full card →
                 </Link>
               </div>
@@ -210,7 +300,7 @@ function Review() {
           <div className="mt-8 border-t-2 border-dashed border-border/50 pt-6">
             {revealed ? (
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                {previewIntervals(card.state === "new" ? blankCard(word.id) : card).map(({ rating, label }) => (
+                {previewIntervals(card).map(({ rating, label }) => (
                   <Button
                     key={rating}
                     size="lg"
@@ -233,29 +323,41 @@ function Review() {
   );
 }
 
-function shuffle(list: Word[], seedId: number) {
+function shuffle(list: Word[], seedId: string) {
+  const seed = [...seedId].reduce((value, char) => ((value * 31) + char.charCodeAt(0)) >>> 0, 0);
   const a = [...list];
   for (let i = a.length - 1; i > 0; i--) {
-    const j = (seedId * (i + 7)) % (i + 1);
+    const j = (seed * (i + 7)) % (i + 1);
     [a[i], a[j]] = [a[j]!, a[i]!];
   }
   return a;
 }
 
-function Summary({ tally, total }: { tally: { done: number; again: number; confused: number }; total: number }) {
+function Summary({ tally, title, message, learningNote, onCheckAgain, moreCards, onStartAnother }: {
+  tally: { done: number; again: number; confused: number };
+  title: string;
+  message: string;
+  learningNote?: string | undefined;
+  onCheckAgain?: (() => void) | undefined;
+  moreCards: number;
+  onStartAnother?: (() => void) | undefined;
+}) {
   return (
     <Card className="mx-auto max-w-xl p-8 text-center md:p-10">
-      <h1 className="text-4xl">Session complete</h1>
-      <p className="mt-3 text-body">
-        {total === 0 ? "Nothing is due right now — come back later or browse the deck." : "Nice work. Your schedule is updated."}
-      </p>
-      <div className="mt-8 grid grid-cols-3 gap-3">
-        <Box label="Rated" value={tally.done} />
-        <Box label="Again" value={tally.again} />
-        <Box label="Mix-ups" value={tally.confused} />
-      </div>
+      <h1 className="text-4xl">{title}</h1>
+      <p className="mt-3 text-body">{message}</p>
+      {learningNote && <p className="mt-2 text-sm text-muted-foreground">{learningNote}</p>}
+      {tally.done > 0 && (
+        <div className="mt-8 grid grid-cols-3 gap-3">
+          <Box label="Rated" value={tally.done} />
+          <Box label="Again" value={tally.again} />
+          <Box label="Mix-ups" value={tally.confused} />
+        </div>
+      )}
       <div className="mt-8 flex flex-wrap justify-center gap-3">
-        <Link to="/"><Button size="lg">Back to today</Button></Link>
+        {onStartAnother && <Button size="lg" onClick={onStartAnother}>Next session ({moreCards})</Button>}
+        {onCheckAgain && <Button size="lg" variant="surface" onClick={onCheckAgain}>Check again</Button>}
+        <Link to="/"><Button size="lg" variant={onStartAnother ? "surface" : "primary"}>Back to today</Button></Link>
         <Link to="/progress"><Button size="lg" variant="surface">See progress</Button></Link>
       </div>
     </Card>

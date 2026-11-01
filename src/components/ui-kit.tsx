@@ -97,9 +97,17 @@ export function Furigana({ text, className }: { text: string; className?: string
   );
 }
 
-export function AudioButton({ text, size = "icon", label = "Play audio", buttonText = "Listen" }: { text: string; size?: "icon" | "md"; label?: string; buttonText?: string }) {
+export function AudioButton({ text, src, size = "icon", label = "Play audio", buttonText = "Listen" }: { text: string; src?: string | undefined; size?: "icon" | "md"; label?: string; buttonText?: string }) {
+  const play = () => {
+    if (src) {
+      const audio = new Audio(src);
+      void audio.play().catch(() => speak(text));
+      return;
+    }
+    speak(text);
+  };
   return (
-    <Button variant="surface" size={size} aria-label={label} onClick={() => speak(text)}>
+    <Button variant="surface" size={size} aria-label={label} onClick={play}>
       <Volume2 className="size-5" />
       {size === "md" && <span>{buttonText}</span>}
     </Button>
@@ -109,8 +117,8 @@ export function AudioButton({ text, size = "icon", label = "Play audio", buttonT
 export function WordChip({ w, highlight }: { w: Word; highlight?: boolean }) {
   return (
     <Link
-      to="/vocab/$id"
-      params={{ id: String(w.id) }}
+      to="/vocab/$id_number"
+      params={{ id_number: String(w.idNumber) }}
       className={cn("card-hard-sm pressable-sm flex items-baseline gap-3 px-4 py-2 no-underline", highlight && "bg-secondary")}
     >
       <span lang="ja" className="font-jp text-xl font-semibold text-foreground">{w.word}</span>
@@ -120,17 +128,4 @@ export function WordChip({ w, highlight }: { w: Word; highlight?: boolean }) {
   );
 }
 
-export function Illustration({ w, className }: { w: Word; className?: string }) {
-  return (
-    <div className={cn("flex aspect-square items-center justify-center overflow-hidden rounded-lg border-2 border-border bg-background grid-paper", className)}>
-      {w.image ? (
-        <img src={w.image} alt={w.imageAlt} width={816} height={816} loading="lazy" className="h-full w-full object-contain p-4" />
-      ) : (
-        <div className="flex flex-col items-center gap-2 p-4 text-center">
-          <span lang="ja" className="text-jp-display text-5xl opacity-30">{w.word.slice(0, 1)}</span>
-          <span lang="ja" className="max-w-40 text-xs leading-snug text-muted-foreground">{w.imageAlt || "Kaishi illustration"}</span>
-        </div>
-      )}
-    </div>
-  );
-}
+ 
