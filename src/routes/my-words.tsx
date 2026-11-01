@@ -3,7 +3,8 @@ import { Bookmark, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Card, Eyebrow, Tag, WordChip } from "@/components/ui-kit";
 import { useLibrary } from "@/lib/library";
-import { getWord, type Word } from "@/lib/vocab";
+import { type Word } from "@/lib/vocab";
+import { bundledCatalog, useVocabularyCatalog } from "@/lib/vocabulary-catalog";
 
 export const Route = createFileRoute("/my-words")({
   head: () => ({
@@ -17,15 +18,17 @@ export const Route = createFileRoute("/my-words")({
 
 function MyWords() {
   const library = useLibrary();
+  const { data } = useVocabularyCatalog();
+  const catalogue: Word[] = data ?? bundledCatalog;
   const [query, setQuery] = useState("");
   const saved = useMemo(() => {
     const term = query.trim().toLowerCase();
     return Object.entries(library)
-      .map(([id, personal]) => ({ word: getWord(Number(id)), personal }))
+      .map(([id, personal]) => ({ word: catalogue.find((entry) => entry.id === id), personal }))
       .filter((entry): entry is { word: Word; personal: (typeof library)[number] } => Boolean(entry.word))
       .filter(({ word }) => !term || word.word.includes(term) || word.reading.includes(term) || word.meaning.toLowerCase().includes(term))
       .sort((a, b) => b.personal.addedAt - a.personal.addedAt);
-  }, [library, query]);
+  }, [library, query, catalogue]);
 
   return (
     <div className="space-y-8">

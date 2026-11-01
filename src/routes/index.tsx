@@ -2,8 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Flame, Sparkles } from "lucide-react";
 import mascot from "@/assets/ill-mascot.png";
 import { Button, Card, Eyebrow, ProgressBar, Tag, WordChip } from "@/components/ui-kit";
-import { dueCards, newCards, reviewedToday, stats, streak, useSrs } from "@/lib/srs";
-import { confusablesOf, getWord } from "@/lib/vocab";
+import { dueCards, newCards, planSession, reviewedToday, stats, streak, useSrs } from "@/lib/srs";
+import { confusablesFrom, type Word } from "@/lib/vocab";
+import { bundledCatalog, useVocabularyCatalog } from "@/lib/vocabulary-catalog";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -19,15 +20,22 @@ export const Route = createFileRoute("/")({
 
 function Today() {
   const s = useSrs();
-  const due = dueCards(s);
-  const fresh = newCards(s);
+  const { data } = useVocabularyCatalog();
+  const catalogue: Word[] = data ?? bundledCatalog;
+  const byId = new Map(catalogue.map((word) => [word.id, word]));
+  const known = new Set(byId.keys());
+  // Daily totals, and the first session exactly as the Review page will build it.
+  const due = dueCards(s).filter((card) => known.has(card.id));
+  const fresh = newCards(s, Date.now(), catalogue);
+  const session = planSession(s, catalogue);
   const done = reviewedToday(s);
   const total = due.length + fresh.length + done;
   const st = stats(s);
   const days = streak(s);
-  const contrastCount = due.filter((c) => confusablesOf(getWord(c.id)!)).length;
+  const dueWords = due.map((c) => byId.get(c.id)).filter((w): w is Word => Boolean(w));
+  const contrastCount = due.filter((c) => c.state === "review" && confusablesFrom(byId.get(c.id)!, catalogue) !== null).length;
   const dateLabel = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-  const hardToday = due.map((c) => getWord(c.id)!).filter((w) => confusablesOf(w)).slice(0, 4);
+  const hardToday = dueWords.filter((w) => confusablesFrom(w, catalogue) !== null).slice(0, 4);
 
   return (
     <div className="space-y-10">
@@ -39,7 +47,7 @@ function Today() {
               {due.length + fresh.length === 0 ? "All caught up." : "Ready when you are."}
             </h1>
             <p className="mt-3 max-w-md text-lg text-body">
-              {due.length} reviews due, {fresh.length} new words, and {contrastCount} contrast checks for words you tend to confuse.
+              {due.length} reviews due, {fresh.length} of {s.newPerDay} new words left today, and {contrastCount} contrast checks for words you tend to confuse.
             </p>
           </div>
 
@@ -59,7 +67,9 @@ function Today() {
                 Start Review <ArrowRight className="size-5" />
               </Button>
             </Link>
-            <span className="font-mono text-sm text-muted-foreground">≈ {Math.max(1, Math.round((due.length + fresh.length) * 0.35))} min</span>
+            <span className="font-mono text-sm text-muted-foreground">
+              This session: {session.ids.length} cards ({session.fresh} new · {session.learning} learning · {session.review} review) · ≈ {Math.max(1, Math.round(session.ids.length * 0.35))} min
+            </span>
           </div>
           <img src={mascot} alt="" width={816} height={816} className="pointer-events-none absolute -right-6 -bottom-8 hidden w-56 opacity-90 md:block" />
         </Card>
@@ -100,7 +110,7 @@ function Today() {
               <div key={w.id} className="space-y-2">
                 <WordChip w={w} />
                 <p className="pl-1 font-mono text-xs text-muted-foreground">
-                  vs {confusablesOf(w)!.words.map((x) => x.word).join(" · ")}
+                  vs {confusablesFrom(w, catalogue)!.words.map((x) => x.word).join(" · ")}
                 </p>
               </div>
             ))}

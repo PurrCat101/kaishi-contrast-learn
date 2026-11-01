@@ -2,7 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Eyebrow, Tag, WordChip } from "@/components/ui-kit";
-import { confusablesOf, words } from "@/lib/vocab";
+import { useSrs } from "@/lib/srs";
+import { searchVocabulary } from "@/lib/vocab-search";
+import { confusablesFrom } from "@/lib/vocab";
+import { bundledCatalog, useVocabularyCatalog } from "@/lib/vocabulary-catalog";
 
 export const Route = createFileRoute("/vocab/")({
   head: () => ({
@@ -19,13 +22,24 @@ export const Route = createFileRoute("/vocab/")({
 function WordList() {
   const [q, setQ] = useState("");
   const [onlyConfusing, setOnlyConfusing] = useState(false);
-  const list = useMemo(() => {
-    const t = q.trim().toLowerCase();
-    return words
-      .filter((w) => !onlyConfusing || confusablesOf(w))
-      .filter((w) => !t || w.word.includes(t) || w.reading.includes(t) || w.meaning.toLowerCase().includes(t))
-      .slice(0, 120);
-  }, [q, onlyConfusing]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(48);
+  const srs = useSrs();
+  const { data, isFetching, isError } = useVocabularyCatalog();
+  const words = data ?? bundledCatalog;
+  const results = useMemo(() => {
+    return searchVocabulary(words, q, srs)
+      .filter((w) => !onlyConfusing || confusablesFrom(w, words));
+  }, [q, onlyConfusing, srs, words]);
+  const pageCount = Math.max(1, Math.ceil(results.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const list = results.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const resetResults = (nextQuery?: string, nextConfusing?: boolean) => {
+    if (nextQuery !== undefined) setQ(nextQuery);
+    if (nextConfusing !== undefined) setOnlyConfusing(nextConfusing);
+    setPage(1);
+  };
 
   return (
     <div className="space-y-6">
@@ -38,14 +52,14 @@ function WordList() {
           <Search className="size-5 text-muted-foreground" />
           <input
             value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search kanji, kana, or meaning…"
+            onChange={(e) => resetResults(e.target.value)}
+            placeholder="Search or filter, e.g. studied:today"
             className="w-full bg-transparent font-jp text-lg outline-none placeholder:text-muted-foreground"
           />
         </label>
         <button
           type="button"
-          onClick={() => setOnlyConfusing((v) => !v)}
+          onClick={() => resetResults(undefined, !onlyConfusing)}
           className="cursor-pointer rounded-full"
           aria-pressed={onlyConfusing}
         >
@@ -54,10 +68,25 @@ function WordList() {
           </Tag>
         </button>
       </div>
+      <p className="font-mono text-xs text-muted-foreground">Try: <code>studied:today</code> · <code>studied:week</code> · <code>introduced:week</code> · <code>difficulty:hard</code> · <code>difficulty:&gt;=7</code> · <code>state:review</code> · <code>is:confusing</code>. Combine terms with spaces.</p>
+      {isFetching && <p className="font-mono text-xs text-muted-foreground">Loading the imported vocabulary catalogue…</p>}
+      {isError && <p className="font-mono text-xs text-muted-foreground">Could not reach the catalogue; showing the bundled offline deck.</p>}
+      <div className="flex flex-wrap items-center justify-between gap-3 font-mono text-xs text-muted-foreground">
+        <p>{results.length.toLocaleString()} matching words · page {currentPage} of {pageCount}</p>
+        <label className="flex items-center gap-2">Page size
+          <select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }} className="rounded border border-border bg-card px-2 py-1 text-foreground">
+            {[24, 48, 96].map((size) => <option key={size} value={size}>{size}</option>)}
+          </select>
+        </label>
+      </div>
       <div className="grid gap-3 md:grid-cols-2">
         {list.map((w) => <WordChip key={w.id} w={w} />)}
       </div>
-      {list.length === 120 && <p className="font-mono text-xs text-muted-foreground">Showing first 120 — refine your search.</p>}
+      {results.length > 0 && <div className="flex items-center justify-center gap-3">
+        <button type="button" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)} className="rounded-md border-2 border-border bg-card px-4 py-2 font-bold shadow-hard-sm disabled:cursor-not-allowed disabled:opacity-40">Previous</button>
+        <span className="font-mono text-sm">{currentPage} / {pageCount}</span>
+        <button type="button" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)} className="rounded-md border-2 border-border bg-card px-4 py-2 font-bold shadow-hard-sm disabled:cursor-not-allowed disabled:opacity-40">Next</button>
+      </div>}
     </div>
   );
 }

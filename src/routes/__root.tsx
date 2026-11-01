@@ -8,7 +8,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
-import { BarChart3, BookMarked, BookOpen, Home, LogIn, LogOut, Shuffle } from "lucide-react";
+import { BarChart3, BookMarked, BookOpen, Home, LogIn, LogOut, Settings2, Shuffle } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -110,6 +110,7 @@ const nav = [
   { to: "/vocab", label: "Words", icon: BookOpen },
   { to: "/my-words", label: "My Words", icon: BookMarked },
   { to: "/progress", label: "Progress", icon: BarChart3 },
+  { to: "/settings", label: "Settings", icon: Settings2 },
 ] as const;
 
 function Header() {
@@ -117,19 +118,19 @@ function Header() {
 
   return (
     <header className="sticky top-0 z-20 border-b-2 border-border bg-background/90 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 md:px-8">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-1 px-4 md:gap-4 md:px-8">
         <Link to="/" className="flex items-center gap-3 no-underline">
           <span lang="ja" className="flex size-10 items-center justify-center rounded-md border-2 border-border bg-primary font-jp-serif text-2xl font-bold text-primary-foreground shadow-hard-sm">橋</span>
           <span className="font-display text-2xl text-foreground">Hashi</span>
           <span className="hidden font-mono text-xs uppercase tracking-widest text-muted-foreground sm:inline">Kaishi 1.5k</span>
         </Link>
         <div className="flex items-center gap-2">
-          <nav className="flex items-center gap-1" aria-label="Main">
+          <nav className="flex min-w-0 items-center gap-0 overflow-x-auto sm:gap-1 scrollbar-thin" aria-label="Main">
             {nav.map(({ to, label, icon: Icon }) => (
               <Link
                 key={to}
                 to={to}
-                className="flex min-h-10 items-center gap-2 rounded-full border-2 border-transparent px-3 py-1 font-bold text-foreground no-underline transition-colors hover:bg-muted"
+                className="flex min-h-10 shrink-0 items-center gap-2 rounded-full border-2 border-transparent px-3 py-2 font-bold text-foreground no-underline transition-colors hover:bg-muted sm:px-4"
                 activeProps={{ className: "border-border bg-secondary shadow-hard-sm" }}
                 activeOptions={{ exact: to === "/" }}
               >
@@ -138,15 +139,39 @@ function Header() {
               </Link>
             ))}
           </nav>
-          {configured && !loading && (session ? (
-            <Button variant="ghost" size="icon" aria-label="Sign out" title="Sign out" onClick={() => void signOut()}>
-              <LogOut className="size-4" />
-            </Button>
-          ) : (
-            <Button variant="surface" size="icon" aria-label="Sign in with Google" title="Sign in with Google" onClick={() => void signInWithGoogle()}>
-              <LogIn className="size-4" />
-            </Button>
-          ))}
+          <div className="flex items-center gap-2">
+            {configured && !loading && (
+              <>
+                {session ? (
+                  <div className="flex items-center gap-2">
+                    <div className="hidden sm:flex items-center gap-2 rounded-full border-2 border-border bg-muted px-3 py-1">
+                      <div className="size-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+                        {session.user.email?.[0]?.toUpperCase() || "U"}
+                      </div>
+                      <span className="font-mono text-xs text-muted-foreground max-w-[100px] truncate">
+                        {session.user.email?.split("@")[0]}
+                      </span>
+                    </div>
+                    <Button variant="ghost" size="icon" aria-label="Sign out" title="Sign out" onClick={() => void signOut()}>
+                      <LogOut className="size-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div className="hidden sm:flex items-center gap-2 rounded-full border-2 border-border bg-muted px-3 py-1">
+                      <div className="size-6 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center text-xs font-bold">
+                        G
+                      </div>
+                      <span className="font-mono text-xs text-muted-foreground">Guest</span>
+                    </div>
+                    <Button variant="surface" size="icon" aria-label="Sign in with Google" title="Sign in with Google" onClick={() => void signInWithGoogle()}>
+                      <LogIn className="size-4" />
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </header>

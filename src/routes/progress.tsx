@@ -1,15 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { RotateCcw } from "lucide-react";
-import { Button, Card, Eyebrow, ProgressBar, Tag } from "@/components/ui-kit";
-import { intervalLabel, resetProgress, retrievability, stats, streak, useSrs, DESIRED_RETENTION } from "@/lib/srs";
-import { confusablesOf, getWord, words } from "@/lib/vocab";
+import { useEffect, useState } from "react";
+import { Card, Eyebrow, ProgressBar, Tag } from "@/components/ui-kit";
+import { dueCards, intervalLabel, retrievability, stats, streak, useSrs, DESIRED_RETENTION } from "@/lib/srs";
+import { confusablesFrom } from "@/lib/vocab";
+import { bundledCatalog, useVocabularyCatalog } from "@/lib/vocabulary-catalog";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/progress")({
   head: () => ({
     meta: [
       { title: "Progress — Hashi" },
-      { name: "description", content: "Words learned, words in progress, confusing words, review history, and FSRS-style forecasts." },
+      { name: "description", content: "Your words learned, words in progress, confusing words, review history, and upcoming review schedule." },
       { property: "og:title", content: "Progress — Hashi" },
       { property: "og:description", content: "Track what you know, what you're learning, and what you keep mixing up." },
     ],
@@ -19,8 +20,17 @@ export const Route = createFileRoute("/progress")({
 
 function Progress() {
   const s = useSrs();
-  const st = stats(s);
-  const now = Date.now();
+  const { data } = useVocabularyCatalog();
+  const catalogue = data ?? bundledCatalog;
+  const byId = new Map(catalogue.map((word) => [word.id, word]));
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    setNow(Date.now());
+  }, []);
+
+  const st = stats(s, now);
+  const dueNow = dueCards(s, now).length;
   const maxHist = Math.max(1, ...st.history.map((h) => h.count));
   const maxFc = Math.max(1, ...st.forecast.map((f) => f.count));
   const avgR = (() => {
@@ -35,24 +45,21 @@ function Progress() {
           <Eyebrow>Kaishi 1.5k</Eyebrow>
           <h1 className="mt-2 text-4xl">Progress</h1>
         </div>
-        <Button variant="ghost" size="sm" onClick={resetProgress}>
-          <RotateCcw className="size-4" /> Reset demo data
-        </Button>
       </div>
 
       <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <Big label="Learned" value={st.learned} sub={`of ${words.length} words`} tone="mint" />
+        <Big label="Due now" value={dueNow} sub="cards to review" tone="accent" />
         <Big label="Learning" value={st.learning} sub="stability under 7 days" tone="secondary" />
-        <Big label="Confusing" value={st.difficult.length} sub="high difficulty or lapses" tone="accent" />
+        <Big label="Learned" value={st.learned} sub={`of ${catalogue.length} words`} tone="mint" />
         <Big label="Streak" value={streak(s)} sub="days in a row" tone="info" />
       </section>
 
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-xl">Deck coverage</h2>
-          <span className="font-mono text-sm text-muted-foreground">{st.total} / {words.length} seen</span>
+          <span className="font-mono text-sm text-muted-foreground">{st.total} / {catalogue.length} seen</span>
         </div>
-        <ProgressBar className="mt-4" value={st.learned} max={words.length} tone="mint" />
+        <ProgressBar className="mt-4" value={st.learned} max={catalogue.length} tone="mint" />
         <p className="mt-2 font-mono text-xs text-muted-foreground">Green = learned · seen but still learning: {st.learning}</p>
       </Card>
 
@@ -77,7 +84,7 @@ function Progress() {
 
         <Card>
           <h2 className="text-xl">Upcoming reviews</h2>
-          <p className="text-sm text-muted-foreground">FSRS-style forecast · next 7 days</p>
+          <p className="text-sm text-muted-foreground">From your current review schedule · next 7 days</p>
           <div className="mt-6 flex h-40 items-end gap-1.5">
             {st.forecast.map((f, i) => (
               <div key={i} className="flex flex-1 flex-col items-center gap-1">
@@ -99,9 +106,9 @@ function Progress() {
             <div><dt className="text-foreground/70">Target retention</dt><dd className="font-display text-3xl text-foreground">{DESIRED_RETENTION * 100}%</dd></div>
             <div><dt className="text-foreground/70">Actual (30d)</dt><dd className="font-display text-3xl text-foreground">{st.retention}%</dd></div>
             <div><dt className="text-foreground/70">Avg recall now</dt><dd className="font-display text-3xl text-foreground">{avgR}%</dd></div>
-            <div><dt className="text-foreground/70">Contrast groups</dt><dd className="font-display text-3xl text-foreground">{words.filter((w) => confusablesOf(w)).length}</dd></div>
+            <div><dt className="text-foreground/70">Contrast groups</dt><dd className="font-display text-3xl text-foreground">{catalogue.filter((w) => confusablesFrom(w, catalogue)).length}</dd></div>
           </dl>
-          <p className="text-sm text-body">Each card tracks stability (how long memory lasts) and difficulty. Wrong picks on contrast cards raise difficulty and pull the next review closer.</p>
+          <p className="text-sm text-body">Based on your recorded reviews (your account when signed in, otherwise this browser). FSRS tracks stability and difficulty; wrong contrast picks are logged alongside the scheduled recall result.</p>
         </Card>
 
         <Card>
@@ -109,16 +116,17 @@ function Progress() {
           <p className="text-sm text-muted-foreground">Soonest scheduled cards</p>
           <ul className="mt-4 divide-y-2 divide-border/20">
             {st.upcoming.slice(0, 7).map((c) => {
-              const w = getWord(c.id)!;
+              const w = byId.get(c.id);
+              if (!w) return null;
               return (
                 <li key={c.id} className="flex items-center gap-3 py-2">
-                  <Link to="/vocab/$id" params={{ id: String(w.id) }} lang="ja" className="font-jp text-xl font-semibold text-foreground no-underline">{w.word}</Link>
+                  <Link to="/vocab/$id_number" params={{ id_number: String(w.idNumber) }} lang="ja" className="font-jp text-xl font-semibold text-foreground no-underline">{w.word}</Link>
                   <span className="text-sm text-muted-foreground">{w.meaning}</span>
                   <span className="ml-auto font-mono text-xs text-muted-foreground">R {Math.round(retrievability(c, now) * 100)}%</span>
                   <Tag tone="secondary">in {intervalLabel(c.due - now)}</Tag>
                 </li>
               );
-            })}
+            }).filter(Boolean)}
           </ul>
         </Card>
       </section>
@@ -143,12 +151,13 @@ function Progress() {
             </thead>
             <tbody className="divide-y-2 divide-border/15">
               {st.difficult.slice(0, 15).map((c) => {
-                const w = getWord(c.id)!;
-                const conf = confusablesOf(w);
+                const w = byId.get(c.id);
+                if (!w) return null;
+                const conf = confusablesFrom(w, catalogue);
                 return (
                   <tr key={c.id} className="hover:bg-muted/60">
                     <td className="px-4 py-3">
-                      <Link to="/vocab/$id" params={{ id: String(w.id) }} className="no-underline">
+                      <Link to="/vocab/$id_number" params={{ id_number: String(w.idNumber) }} className="no-underline">
                         <span lang="ja" className="font-jp text-xl font-semibold text-foreground">{w.word}</span>
                         <span lang="ja" className="ml-2 font-jp text-xs text-muted-foreground">{w.reading}</span>
                       </Link>
@@ -161,7 +170,10 @@ function Progress() {
                     <td className="px-4 py-3 text-right font-mono">{c.due <= now ? "now" : intervalLabel(c.due - now)}</td>
                   </tr>
                 );
-              })}
+              }).filter(Boolean)}
+              {st.difficult.length === 0 && (
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">No difficult words yet — this will fill from your review results.</td></tr>
+              )}
             </tbody>
           </table>
         </div>
