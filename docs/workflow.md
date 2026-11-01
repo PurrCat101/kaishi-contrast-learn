@@ -28,13 +28,13 @@ Stop for human review
 
 ## Current Status
 
-The frontend demo is functional for browsing vocabulary, detail pages, local review, local contrast checks, Today, Progress, My Words, and personal notes. The application is not yet connected to Supabase and must not describe localStorage data as authenticated user data.
+The frontend demo is functional for browsing vocabulary, detail pages, local review, local contrast checks, Today, Progress, My Words, and personal notes. Supabase Auth is connected when browser configuration is present, and authenticated daily limits persist through `user_settings`. All remaining learning state and My Words/notes must still be described as browser-local rather than authenticated user data.
 
 ## Current Next Task
 
-Task 1 — Database Foundation.
+Validate the Task 1 database foundation against the live Supabase project, then continue the APKG import and the remaining authenticated state migration.
 
-Implement the schema foundation from `Backend_Specification_Updated.md` for shared content and user-owned data. Do not migrate frontend stores until ownership keys and constraints are defined.
+The schema foundation and owner constraints are present in the migration. Do not migrate additional frontend stores until the live schema and RLS policies have been validated.
 
 ## Important Constraints
 

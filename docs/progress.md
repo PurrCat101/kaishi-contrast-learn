@@ -20,7 +20,7 @@
 - APKG parsing/import and Supabase Storage media migration.
 - `ts-fsrs` integration and server-persisted recall/discrimination state.
 - AI enrichment jobs, validation, provenance, and confidence metadata.
-- Settings, export, E2E tests, and production audit.
+- Most Settings groups, export, E2E tests, and production audit.
 
 ### Verification
 
@@ -30,8 +30,8 @@
 
 ### Current limitations
 
-- User-specific data is browser-local, not account-scoped, and is not protected by RLS yet.
-- SRS uses a simplified local scheduler and deterministic demo seed; it is not production FSRS.
+- User-specific learning data is browser-local, not account-scoped, and is not protected by RLS yet. Authenticated daily limits are the current exception: they use `user_settings` and its owner RLS policy.
+- SRS uses a simplified local scheduler and browser-local activity; it is not production FSRS.
 - Relationships are local curated data and are not stored in a vocabulary relationship table.
 - Media is currently bundled frontend assets or speech synthesis rather than Supabase Storage references.
 
@@ -138,3 +138,49 @@ Remaining:
 ## Next Task
 
 Task 1 validation, followed by Task 3 — Kaishi Import.
+
+## Task 11 — Settings
+
+- The Settings page now loads and upserts `daily_new_limit`, `daily_review_limit`, and `session_size` in `user_settings` for the authenticated Supabase user.
+- Guest or unconfigured-client settings remain browser-local and the UI labels that distinction explicitly.
+- Other documented settings groups remain pending implementation.
+
+## Task 4–5 — Vocabulary Search and Detail
+
+- Search supports regular word/reading/meaning terms and composable learner-state filters: `studied:today`, `studied:week`, `introduced:week`, `difficulty:hard`, `difficulty:>=7`, `state:review`, and `is:confusing`.
+- Vocabulary detail presents saved words and notes from the current library state; the later catalogue integration entry records the database UUID sync change.
+
+### Catalogue integration — 2026-09-30
+
+- The Words list and detail routes now request `vocabulary` with its readings, examples, relationships, and media links from Supabase. `src/data/kaishi.json` remains an offline/unconfigured fallback.
+- Detail routes use the database UUID, so saving a database word and its personal note uses the correct `user_vocabulary.vocabulary_id` rather than attempting to treat a local numeric ID as a UUID.
+- Word audio, sentence audio, and pictures are resolved from `vocabulary_media` by role and rendered with short-lived Storage signed URLs. `20260930000000_imported_media_read_policy.sql` grants only read access to the three imported media buckets; uploads/deletes remain non-browser operations.
+- Verification: `npm.cmd run build` passes. The local PowerShell `npm` shim is currently broken outside the project (`npm.cmd` works); this is a machine Node/npm installation issue, not a Vite build failure.
+
+## Task 13 — Progress
+
+- Removed the deterministic demo SRS seed. Progress, Today, and search activity filters now start empty and reflect only review activity recorded by the learner in this browser.
+- Existing v1 SRS browser storage is replaced on load because it contains generated demo history, not user activity.
+- Account-scoped progress still depends on the remaining SRS/review-history database migration.
+
+## Task 8 — Review Queue
+
+- Review now waits for browser state hydration before creating its queue, so daily limits are applied from the saved state rather than an initial default.
+- Contrast answers also create an SRS rating. An incorrect answer is scheduled as `Again`, and the normal FSRS relearning step determines when it becomes due again.
+- `daily_new_limit` remains a daily cap, while `session_size` sets the maximum number of new and due cards that begin one review session.
+
+### FSRS follow-up
+
+- Replaced the custom browser scheduler with `ts-fsrs`, configured with 90% desired retention, learning steps of 1 minute and 10 minutes, and a 10-minute relearning step.
+- Failed cards now wait until their real FSRS due time instead of being reinserted immediately into the same queue.
+- A review card that reaches eight lapses is suspended locally as a leech. The account-level SRS/review-history migration and UI for managing suspended cards remain pending.
+
+### Review flow fixes — 2026-11-01
+
+- Signed-in users: `user_settings` limits now load with the SRS state at sign-in (previously the default of 10 new words was used until Settings was opened).
+- Account review history and FSRS rows are read page by page; PostgREST's 1000-row limit previously dropped the newest reviews and broke "introduced today".
+- The daily review limit now counts reviews already answered today instead of resetting each session. New introductions are counted from the card's previous state.
+- Review builds its queue once per session (previously rebuilt after every rating, resetting position and the contrast feedback). The Review/Contrast tabs were removed because words with confusable partners were hidden from the Review tab.
+- `Again` cards return in the same session when their 1m/10m step is due; a 20-minute learn-ahead shows them when nothing else is left.
+- Today, Review, Progress, and My Words resolve words from the database catalogue (UUIDs), so their counts agree.
+- A failed account load blocks review instead of starting blank, and database writes run in order and skip non-UUID (offline) words.
