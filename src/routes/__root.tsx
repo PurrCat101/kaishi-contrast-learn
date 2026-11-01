@@ -118,23 +118,23 @@ function Header() {
 
   return (
     <header className="sticky top-0 z-20 border-b-2 border-border bg-background/90 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-1 px-4 md:gap-4 md:px-8">
-        <Link to="/" className="flex items-center gap-3 no-underline">
-          <span lang="ja" className="flex size-10 items-center justify-center rounded-md border-2 border-border bg-primary font-jp-serif text-2xl font-bold text-primary-foreground shadow-hard-sm">橋</span>
-          <span className="font-display text-2xl text-foreground">Hashi</span>
-          <span className="hidden font-mono text-xs uppercase tracking-widest text-muted-foreground sm:inline">Kaishi 1.5k</span>
+      <div className="mx-auto flex h-14 sm:h-16 max-w-6xl items-center justify-between gap-1 px-3 sm:px-4 md:px-6 lg:px-8 md:gap-4">
+        <Link to="/" className="flex items-center gap-2 sm:gap-3 no-underline">
+          <span lang="ja" className="flex size-8 sm:size-10 items-center justify-center rounded-md border-2 border-border bg-primary font-jp-serif text-lg sm:text-2xl font-bold text-primary-foreground shadow-hard-sm">橋</span>
+          <span className="font-display text-lg sm:text-2xl text-foreground">Hashi</span>
+          <span className="hidden font-mono text-[10px] sm:text-xs uppercase tracking-widest text-muted-foreground sm:inline">Kaishi 1.5k</span>
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           <nav className="flex min-w-0 items-center gap-0 overflow-x-auto sm:gap-1 scrollbar-thin" aria-label="Main">
             {nav.map(({ to, label, icon: Icon }) => (
               <Link
                 key={to}
                 to={to}
-                className="flex min-h-10 shrink-0 items-center gap-2 rounded-full border-2 border-transparent px-3 py-2 font-bold text-foreground no-underline transition-colors hover:bg-muted sm:px-4"
+                className="flex min-h-10 shrink-0 items-center gap-1 sm:gap-2 rounded-full border-2 border-transparent px-2 sm:px-3 md:px-4 py-1 sm:py-2 font-bold text-xs sm:text-sm md:text-base text-foreground no-underline transition-colors hover:bg-muted"
                 activeProps={{ className: "border-border bg-secondary shadow-hard-sm" }}
                 activeOptions={{ exact: to === "/" }}
               >
-                <Icon className="size-4" />
+                <Icon className="size-3 sm:size-4" />
                 <span className="hidden sm:inline">{label}</span>
               </Link>
             ))}
