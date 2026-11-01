@@ -78,9 +78,7 @@ function WordList() {
           </Tag>
         </button>
       </div>
-      <div className="overflow-x-auto">
-        <p className="font-mono text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">Try: <code>studied:today</code> · <code>studied:week</code> · <code>introduced:week</code> · <code>difficulty:hard</code> · <code>difficulty:&gt;=7</code> · <code>state:review</code> · <code>is:confusing</code></p>
-      </div>
+      <p className="font-mono text-[10px] sm:text-xs text-muted-foreground break-words">Try: <code>studied:today</code> · <code>studied:week</code> · <code>introduced:week</code> · <code>difficulty:hard</code> · <code>difficulty:&gt;=7</code> · <code>state:review</code> · <code>is:confusing</code></p>
       {isFetching && <p className="font-mono text-xs text-muted-foreground">Loading the imported vocabulary catalogue…</p>}
       {isError && <p className="font-mono text-xs text-muted-foreground">Could not reach the catalogue; showing the bundled offline deck.</p>}
       {!isFetching && (

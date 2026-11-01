@@ -208,6 +208,35 @@ function Header() {
               <span>{label}</span>
             </Link>
           ))}
+          <div className="border-t-2 border-border mt-2 pt-2">
+            {configured && !loading && (
+              <>
+                {session ? (
+                  <button
+                    onClick={() => {
+                      signOut();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 rounded-full border-2 border-transparent px-3 py-2 font-bold text-foreground hover:bg-muted transition-colors"
+                  >
+                    <LogOut className="size-5" />
+                    <span>Sign out</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      signInWithGoogle();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 rounded-full border-2 border-border bg-primary px-3 py-2 font-bold text-primary-foreground hover:shadow-hard-sm transition-all"
+                  >
+                    <LogIn className="size-5" />
+                    <span>Sign in</span>
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </nav>
       )}
     </>
