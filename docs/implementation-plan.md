@@ -1,3 +1,5 @@
+> **หมายเหตุ 2026-10-31:** แผนนี้ถูกแทนที่ด้วย `docs/spec/README.md` (§6 ลำดับ implement) หลัง audit ดู `docs/audit-2026-10-31.md`
+
 # Implementation Plan
 
 Status legend:
