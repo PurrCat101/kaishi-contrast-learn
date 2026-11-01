@@ -9,7 +9,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { BarChart3, BookMarked, BookOpen, Home, LogIn, LogOut, Settings2, Shuffle } from "lucide-react";
+import { BarChart3, BookMarked, BookOpen, Home, LogIn, LogOut, Settings2, Shuffle, Menu, X } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -118,73 +118,99 @@ const nav = [
 function Header() {
   const { session, loading, configured, signInWithGoogle, signOut } = useAuth();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  // Highlight the clicked tab straight away; the route may still be loading behind a transition.
   const [clicked, setClicked] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   useEffect(() => setClicked(null), [pathname]);
+  useEffect(() => setMobileMenuOpen(false), [pathname]);
   const activePath = clicked ?? pathname;
 
   return (
-    <header className="sticky top-0 z-20 border-b-2 border-border bg-background/90 backdrop-blur">
-      <div className="mx-auto flex h-14 sm:h-16 max-w-6xl items-center justify-between gap-1 px-3 sm:px-4 md:px-6 lg:px-8 md:gap-4">
-        <Link to="/" className="flex items-center gap-2 sm:gap-3 no-underline">
-          <span lang="ja" className="flex size-8 sm:size-10 items-center justify-center rounded-md border-2 border-border bg-primary font-jp-serif text-lg sm:text-2xl font-bold text-primary-foreground shadow-hard-sm">橋</span>
-          <span className="font-display text-lg sm:text-2xl text-foreground">Hashi</span>
-          <span className="hidden font-mono text-[10px] sm:text-xs uppercase tracking-widest text-muted-foreground sm:inline">Kaishi 1.5k</span>
-        </Link>
-        <div className="flex items-center gap-1 sm:gap-2">
-          <nav className="flex min-w-0 items-center gap-1 overflow-hidden -my-1 py-1 pr-1" aria-label="Main">
-            {nav.map(({ to, label, icon: Icon }) => (
-              <Link
-                key={to}
-                to={to}
-                onClick={() => setClicked(to)}
-                aria-current={activePath === to ? "page" : undefined}
-                className={cn(
-                  "flex min-h-10 sm:min-h-11 items-center gap-1 sm:gap-2 rounded-full border-2 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 font-bold text-sm md:text-base text-foreground no-underline transition-colors whitespace-nowrap",
-                  activePath === to ? "border-border bg-secondary shadow-hard-sm" : "border-transparent hover:bg-muted",
-                )}
-              >
-                <Icon className="size-4" />
-                <span className="hidden sm:inline">{label}</span>
-              </Link>
-            ))}
-          </nav>
-          <div className="flex items-center gap-2">
-            {configured && !loading && (
-              <>
-                {session ? (
-                  <div className="flex items-center gap-2">
-                    <div className="hidden sm:flex items-center gap-2 rounded-full border-2 border-border bg-muted px-3 py-1">
-                      <div className="size-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
-                        {session.user.email?.[0]?.toUpperCase() || "U"}
+    <>
+      <header className="sticky top-0 z-20 border-b-2 border-border bg-background/90 backdrop-blur">
+        <div className="mx-auto flex h-14 sm:h-16 max-w-6xl items-center justify-between px-3 sm:px-4 md:px-6 lg:px-8">
+          <Link to="/" className="flex items-center gap-2 sm:gap-3 no-underline">
+            <span lang="ja" className="flex size-8 sm:size-10 items-center justify-center rounded-md border-2 border-border bg-primary font-jp-serif text-lg sm:text-2xl font-bold text-primary-foreground shadow-hard-sm">橋</span>
+            <span className="font-display text-lg sm:text-2xl text-foreground">Hashi</span>
+            <span className="hidden font-mono text-[10px] sm:text-xs uppercase tracking-widest text-muted-foreground sm:inline">Kaishi 1.5k</span>
+          </Link>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <nav className="hidden sm:flex min-w-0 items-center gap-1 overflow-hidden -my-1 py-1 pr-1" aria-label="Main">
+              {nav.map(({ to, label, icon: Icon }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  onClick={() => setClicked(to)}
+                  aria-current={activePath === to ? "page" : undefined}
+                  className={cn(
+                    "flex min-h-10 sm:min-h-11 items-center gap-1 sm:gap-2 rounded-full border-2 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 font-bold text-sm md:text-base text-foreground no-underline transition-colors whitespace-nowrap",
+                    activePath === to ? "border-border bg-secondary shadow-hard-sm" : "border-transparent hover:bg-muted",
+                  )}
+                >
+                  <Icon className="size-4" />
+                  <span className="hidden sm:inline">{label}</span>
+                </Link>
+              ))}
+            </nav>
+            <div className="flex items-center gap-2">
+              {configured && !loading && (
+                <>
+                  {session ? (
+                    <div className="flex items-center gap-2">
+                      <div className="hidden sm:flex items-center gap-2 rounded-full border-2 border-border bg-muted px-3 py-1">
+                        <div className="size-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+                          {session.user.email?.[0]?.toUpperCase() || "U"}
+                        </div>
+                        <span className="font-mono text-xs text-muted-foreground max-w-[100px] truncate">
+                          {session.user.email?.split("@")[0]}
+                        </span>
                       </div>
-                      <span className="font-mono text-xs text-muted-foreground max-w-[100px] truncate">
-                        {session.user.email?.split("@")[0]}
-                      </span>
+                      <Button variant="ghost" size="icon" aria-label="Sign out" title="Sign out" onClick={() => void signOut()}>
+                        <LogOut className="size-4" />
+                      </Button>
                     </div>
-                    <Button variant="ghost" size="icon" aria-label="Sign out" title="Sign out" onClick={() => void signOut()}>
-                      <LogOut className="size-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <div className="hidden sm:flex items-center gap-2 rounded-full border-2 border-border bg-muted px-3 py-1">
-                      <div className="size-6 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center text-xs font-bold">
-                        G
-                      </div>
-                      <span className="font-mono text-xs text-muted-foreground">Guest</span>
-                    </div>
+                  ) : (
                     <Button variant="surface" size="icon" aria-label="Sign in with Google" title="Sign in with Google" onClick={() => void signInWithGoogle()}>
                       <LogIn className="size-4" />
                     </Button>
-                  </div>
-                )}
-              </>
-            )}
+                  )}
+                </>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Toggle menu"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="sm:hidden"
+              >
+                {mobileMenuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
-    </header>
+      </header>
+      {mobileMenuOpen && (
+        <nav className="sm:hidden border-b-2 border-border bg-background px-3 py-2 flex flex-col gap-1" aria-label="Mobile">
+          {nav.map(({ to, label, icon: Icon }) => (
+            <Link
+              key={to}
+              to={to}
+              onClick={() => {
+                setClicked(to);
+                setMobileMenuOpen(false);
+              }}
+              aria-current={activePath === to ? "page" : undefined}
+              className={cn(
+                "flex items-center gap-3 rounded-full border-2 px-3 py-2 font-bold text-foreground no-underline transition-colors",
+                activePath === to ? "border-border bg-secondary shadow-hard-sm" : "border-transparent hover:bg-muted",
+              )}
+            >
+              <Icon className="size-5" />
+              <span>{label}</span>
+            </Link>
+          ))}
+        </nav>
+      )}
+    </>
   );
 }
 

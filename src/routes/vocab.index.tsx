@@ -57,28 +57,30 @@ function WordList() {
         <Eyebrow>Kaishi 1.5k</Eyebrow>
         <h1 className="mt-2 text-4xl">Words</h1>
       </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="card-hard-sm flex min-h-12 flex-1 items-center gap-2 px-3 shadow-none focus-within:shadow-hard-sm">
-          <Search className="size-5 text-muted-foreground" />
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <label className="card-hard-sm flex min-h-10 sm:min-h-12 flex-1 items-center gap-2 px-3 shadow-none focus-within:shadow-hard-sm min-w-0">
+          <Search className="size-4 sm:size-5 text-muted-foreground shrink-0" />
           <input
             value={q}
             onChange={(e) => resetResults(e.target.value)}
-            placeholder="Search or filter, e.g. studied:today"
-            className="w-full bg-transparent font-jp text-lg outline-none placeholder:text-muted-foreground"
+            placeholder="Search or filter"
+            className="min-w-0 w-full bg-transparent font-jp text-sm sm:text-lg outline-none placeholder:text-muted-foreground"
           />
         </label>
         <button
           type="button"
           onClick={() => resetResults(undefined, !onlyConfusing)}
-          className="cursor-pointer rounded-full"
+          className="cursor-pointer rounded-full shrink-0"
           aria-pressed={onlyConfusing}
         >
-          <Tag tone={onlyConfusing ? "accent" : "muted"} className="min-h-10 px-4 text-sm normal-case tracking-normal">
-            Confusable only
+          <Tag tone={onlyConfusing ? "accent" : "muted"} className="min-h-10 px-3 sm:px-4 text-xs sm:text-sm normal-case tracking-normal">
+            Confusable
           </Tag>
         </button>
       </div>
-      <p className="font-mono text-xs text-muted-foreground">Try: <code>studied:today</code> · <code>studied:week</code> · <code>introduced:week</code> · <code>difficulty:hard</code> · <code>difficulty:&gt;=7</code> · <code>state:review</code> · <code>is:confusing</code>. Combine terms with spaces.</p>
+      <div className="overflow-x-auto">
+        <p className="font-mono text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">Try: <code>studied:today</code> · <code>studied:week</code> · <code>introduced:week</code> · <code>difficulty:hard</code> · <code>difficulty:&gt;=7</code> · <code>state:review</code> · <code>is:confusing</code></p>
+      </div>
       {isFetching && <p className="font-mono text-xs text-muted-foreground">Loading the imported vocabulary catalogue…</p>}
       {isError && <p className="font-mono text-xs text-muted-foreground">Could not reach the catalogue; showing the bundled offline deck.</p>}
       {!isFetching && (
