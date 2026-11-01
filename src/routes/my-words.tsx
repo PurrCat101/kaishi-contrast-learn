@@ -3,9 +3,9 @@ import { Bookmark, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Card, Eyebrow, Tag, WordChip } from "@/components/ui-kit";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useLibrary } from "@/lib/library";
+import { useLibrary, useLibraryReady } from "@/lib/library";
 import { type Word } from "@/lib/vocab";
-import { bundledCatalog, useVocabularyCatalog } from "@/lib/vocabulary-catalog";
+import { useVocabularyWords } from "@/lib/vocabulary-catalog";
 
 export const Route = createFileRoute("/my-words")({
   head: () => ({
@@ -19,8 +19,10 @@ export const Route = createFileRoute("/my-words")({
 
 function MyWords() {
   const library = useLibrary();
-  const { data, isPending } = useVocabularyCatalog();
-  const catalogue: Word[] = data ?? bundledCatalog;
+  const libraryReady = useLibraryReady();
+  const { data, isPending } = useVocabularyWords(Object.keys(library), libraryReady);
+  const catalogue: Word[] = data ?? [];
+  const isLoading = !libraryReady || isPending;
   const [query, setQuery] = useState("");
   const saved = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -39,10 +41,10 @@ function MyWords() {
           <h1 className="mt-2 text-4xl">My Words</h1>
           <p className="mt-2 max-w-xl text-body">Keep the words you want to revisit, with notes that belong to you.</p>
         </div>
-        <Tag tone="secondary">{saved.length} saved</Tag>
+        {!isLoading && <Tag tone="secondary">{saved.length} saved</Tag>}
       </div>
 
-      {isPending ? (
+      {isLoading ? (
         <div className="space-y-3">
           <Skeleton className="h-12 w-full" />
           <div className="grid gap-4 md:grid-cols-2">

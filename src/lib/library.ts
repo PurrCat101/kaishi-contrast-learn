@@ -12,6 +12,8 @@ export type LibraryState = Record<string, PersonalWord>;
 const KEY = "kaishi-contrast-library-v1";
 let state: LibraryState = {};
 let hydrated = false;
+// True once the saved list reflects the account (or there is no account to wait for).
+let ready = false;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((listener) => listener());
 const serverSnapshot: LibraryState = {};
@@ -38,9 +40,10 @@ function getUserLibrarySource() {
 
 async function getAuthenticatedUserId() {
   if (!supabase) return null;
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) return null;
-  return user.id;
+  // getSession reads the cached session locally; getUser costs a network round trip on every call.
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error || !session) return null;
+  return session.user.id;
 }
 
 async function lookupVocabularyIdForWord(wordId: string) {
@@ -60,6 +63,15 @@ async function lookupVocabularyIdForWord(wordId: string) {
 }
 
 async function hydrateRemoteLibrary() {
+  try {
+    await loadRemoteLibrary();
+  } finally {
+    ready = true;
+    emit();
+  }
+}
+
+async function loadRemoteLibrary() {
   if (!supabase) return;
 
   const userId = await getAuthenticatedUserId();
@@ -69,30 +81,22 @@ async function hydrateRemoteLibrary() {
     return;
   }
 
-  const { data: savedRows, error: savedError } = await supabase
-    .from("user_vocabulary")
-    .select("vocabulary_id, added_at")
-    .eq("user_id", userId)
-    .eq("is_active", true);
+  const [{ data: savedRows, error: savedError }, { data: notesRows, error: notesError }] = await Promise.all([
+    supabase.from("user_vocabulary").select("vocabulary_id, added_at").eq("user_id", userId).eq("is_active", true),
+    supabase.from("user_notes").select("vocabulary_id, content").eq("user_id", userId),
+  ]);
 
   if (savedError) {
     console.error("Failed to load user vocabulary", savedError);
     return;
   }
 
-  const vocabularyIds = (savedRows ?? []).map((row) => row.vocabulary_id);
-  if (vocabularyIds.length === 0) {
+  if (!savedRows?.length) {
     state = {};
     persist();
     emit();
     return;
   }
-
-  const { data: notesRows, error: notesError } = await supabase
-    .from("user_notes")
-    .select("vocabulary_id, content")
-    .eq("user_id", userId)
-    .in("vocabulary_id", vocabularyIds);
 
   if (notesError) {
     console.error("Failed to load user notes", notesError);
@@ -132,6 +136,7 @@ function hydrate() {
   } catch {
     state = {};
   }
+  if (!supabase) ready = true;
   emit();
   void syncRemoteLibraryState();
 }
@@ -147,6 +152,18 @@ export function useLibrary() {
   );
   useEffect(() => { hydrate(); }, []);
   return snapshot;
+}
+
+/** False until the saved list has been loaded, so pages don't flash an empty collection. */
+export function useLibraryReady() {
+  return useSyncExternalStore(
+    (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    () => ready,
+    () => false,
+  );
 }
 
 export async function refreshLibrary() {

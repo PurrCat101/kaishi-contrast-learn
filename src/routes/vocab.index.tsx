@@ -6,7 +6,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSrs } from "@/lib/srs";
 import { searchVocabulary } from "@/lib/vocab-search";
 import { confusablesFrom } from "@/lib/vocab";
-import { bundledCatalog, useVocabularyCatalog } from "@/lib/vocabulary-catalog";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { bundledCatalog, useVocabularyCatalog, useVocabularyCatalogPage } from "@/lib/vocabulary-catalog";
 
 export const Route = createFileRoute("/vocab/")({
   head: () => ({
@@ -26,15 +27,23 @@ function WordList() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(48);
   const srs = useSrs();
-  const { data, isFetching, isError } = useVocabularyCatalog();
-  const words = data ?? bundledCatalog;
-  const results = useMemo(() => {
+  // Plain browsing only needs the visible page; search/filters need every word.
+  const browsing = isSupabaseConfigured && !q.trim() && !onlyConfusing;
+  const pageQuery = useVocabularyCatalogPage(page, pageSize, browsing);
+  const catalogQuery = useVocabularyCatalog(!browsing);
+  const { isFetching, isError } = browsing ? pageQuery : catalogQuery;
+  const words = catalogQuery.data ?? bundledCatalog;
+  const filtered = useMemo(() => {
+    if (browsing) return [];
     return searchVocabulary(words, q, srs)
       .filter((w) => !onlyConfusing || confusablesFrom(w, words));
-  }, [q, onlyConfusing, srs, words]);
-  const pageCount = Math.max(1, Math.ceil(results.length / pageSize));
+  }, [browsing, q, onlyConfusing, srs, words]);
+  const total = browsing ? (pageQuery.data?.total ?? 0) : filtered.length;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const currentPage = Math.min(page, pageCount);
-  const list = results.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const list = browsing
+    ? (pageQuery.data?.words ?? [])
+    : filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const resetResults = (nextQuery?: string, nextConfusing?: boolean) => {
     if (nextQuery !== undefined) setQ(nextQuery);
@@ -74,7 +83,7 @@ function WordList() {
       {isError && <p className="font-mono text-xs text-muted-foreground">Could not reach the catalogue; showing the bundled offline deck.</p>}
       {!isFetching && (
         <div className="flex flex-wrap items-center justify-between gap-3 font-mono text-xs text-muted-foreground">
-          <p>{results.length.toLocaleString()} matching words · page {currentPage} of {pageCount}</p>
+          <p>{total.toLocaleString()} matching words · page {currentPage} of {pageCount}</p>
           <label className="flex items-center gap-2">Page size
             <select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }} className="rounded border border-border bg-card px-2 py-1 text-foreground">
               {[24, 48, 96].map((size) => <option key={size} value={size}>{size}</option>)}
@@ -91,7 +100,7 @@ function WordList() {
           list.map((w) => <WordChip key={w.id} w={w} />)
         )}
       </div>
-      {results.length > 0 && <div className="flex items-center justify-center gap-3">
+      {total > 0 && <div className="flex items-center justify-center gap-3">
         <button type="button" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)} className="rounded-md border-2 border-border bg-card px-4 py-2 font-bold shadow-hard-sm disabled:cursor-not-allowed disabled:opacity-40">Previous</button>
         <span className="font-mono text-sm">{currentPage} / {pageCount}</span>
         <button type="button" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)} className="rounded-md border-2 border-border bg-card px-4 py-2 font-bold shadow-hard-sm disabled:cursor-not-allowed disabled:opacity-40">Next</button>
