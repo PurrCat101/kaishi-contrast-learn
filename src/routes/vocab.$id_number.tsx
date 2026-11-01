@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Bookmark, BookmarkCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AudioButton, Button, Card, Eyebrow, Furigana, Tag, WordChip } from "@/components/ui-kit";
+import { Skeleton } from "@/components/ui/skeleton";
 import { removeWord, saveWord, updateNote, useLibrary } from "@/lib/library";
 import { getCard, intervalLabel, retrievability, useSrs } from "@/lib/srs";
 import { useAuth } from "@/lib/auth";
@@ -33,7 +34,33 @@ function Detail() {
   }, [library, w]);
 
   if (!w) {
-    return <div className="space-y-3"><Link to="/vocab" className="font-mono text-sm text-muted-foreground">← All words</Link><p className="card-hard p-6 text-body">{isFetching ? "Loading this vocabulary entry…" : "This vocabulary entry was not found."}</p></div>;
+    if (isFetching) {
+      return (
+        <div className="space-y-8">
+          <Link to="/vocab" className="inline-flex items-center gap-2 font-mono text-sm text-muted-foreground no-underline hover:text-foreground">
+            <ArrowLeft className="size-4" /> All words
+          </Link>
+          <section className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+            <Card className="p-8 md:p-10 space-y-6">
+              <div className="space-y-3">
+                <Skeleton className="h-6 w-40" />
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-8 w-32" />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Skeleton className="h-8 w-24" />
+                <Skeleton className="h-8 w-24" />
+              </div>
+              <Skeleton className="h-12 w-40" />
+            </Card>
+            <Card className="p-6 space-y-4">
+              <Skeleton className="h-40 w-full" />
+            </Card>
+          </section>
+        </div>
+      );
+    }
+    return <div className="space-y-3"><Link to="/vocab" className="font-mono text-sm text-muted-foreground">← All words</Link><p className="card-hard p-6 text-body">This vocabulary entry was not found.</p></div>;
   }
 
   const saved = Boolean(library[w.id]);

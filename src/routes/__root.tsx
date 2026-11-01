@@ -125,12 +125,12 @@ function Header() {
           <span className="hidden font-mono text-[10px] sm:text-xs uppercase tracking-widest text-muted-foreground sm:inline">Kaishi 1.5k</span>
         </Link>
         <div className="flex items-center gap-1 sm:gap-2">
-          <nav className="flex min-w-0 items-center gap-0.5 overflow-x-auto sm:gap-1 scrollbar-thin" aria-label="Main">
+          <nav className="flex min-w-0 items-center gap-1 overflow-hidden" aria-label="Main">
             {nav.map(({ to, label, icon: Icon }) => (
               <Link
                 key={to}
                 to={to}
-                className="flex min-h-10 sm:min-h-11 shrink-0 items-center gap-1 sm:gap-2 rounded-full border-2 border-transparent px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 font-bold text-sm md:text-base text-foreground no-underline transition-colors hover:bg-muted"
+                className="flex min-h-10 sm:min-h-11 items-center gap-1 sm:gap-2 rounded-full border-2 border-transparent px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 font-bold text-sm md:text-base text-foreground no-underline transition-colors hover:bg-muted whitespace-nowrap"
                 activeProps={{ className: "border-border bg-secondary shadow-hard-sm" }}
                 activeOptions={{ exact: true }}
               >

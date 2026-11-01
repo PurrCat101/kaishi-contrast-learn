@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Flame, Sparkles } from "lucide-react";
 import mascot from "@/assets/ill-mascot.png";
 import { Button, Card, Eyebrow, ProgressBar, Tag, WordChip } from "@/components/ui-kit";
+import { Skeleton } from "@/components/ui/skeleton";
 import { dueCards, newCards, planSession, reviewedToday, stats, streak, useSrs } from "@/lib/srs";
 import { confusablesFrom, type Word } from "@/lib/vocab";
 import { bundledCatalog, useVocabularyCatalog } from "@/lib/vocabulary-catalog";
@@ -20,7 +21,7 @@ export const Route = createFileRoute("/")({
 
 function Today() {
   const s = useSrs();
-  const { data } = useVocabularyCatalog();
+  const { data, isPending } = useVocabularyCatalog();
   const catalogue: Word[] = data ?? bundledCatalog;
   const byId = new Map(catalogue.map((word) => [word.id, word]));
   const known = new Set(byId.keys());
@@ -36,6 +37,41 @@ function Today() {
   const contrastCount = due.filter((c) => c.state === "review" && confusablesFrom(byId.get(c.id)!, catalogue) !== null).length;
   const dateLabel = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
   const hardToday = dueWords.filter((w) => confusablesFrom(w, catalogue) !== null).slice(0, 4);
+
+  if (isPending) {
+    return (
+      <div className="space-y-6 sm:space-y-8 md:space-y-10">
+        <section className="grid grid-cols-1 gap-4 sm:gap-5 md:gap-6 lg:grid-cols-[1.4fr_1fr]">
+          <Card className="relative flex flex-col justify-between overflow-hidden p-4 sm:p-6 md:p-8 lg:p-10">
+            <div className="space-y-4">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-10 w-48" />
+              <Skeleton className="h-20 w-full" />
+            </div>
+            <div className="mt-6 sm:mt-8 space-y-3">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-6 w-20" />
+              <div className="mt-4 flex gap-3">
+                <Skeleton className="h-12 w-40" />
+                <Skeleton className="h-4 w-48 mt-1" />
+              </div>
+            </div>
+          </Card>
+          <div className="grid gap-4 sm:gap-5 md:gap-6 sm:grid-cols-2 lg:grid-cols-1">
+            <Card className="p-4 sm:p-5 md:p-6">
+              <Skeleton className="h-32 w-full" />
+            </Card>
+            <Card className="p-4 sm:p-5 md:p-6">
+              <Skeleton className="h-24 w-full" />
+            </Card>
+            <Card className="p-4 sm:p-5 md:p-6">
+              <Skeleton className="h-16 w-full" />
+            </Card>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 sm:space-y-8 md:space-y-10">

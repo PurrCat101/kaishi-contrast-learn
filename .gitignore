@@ -38,3 +38,4 @@ __pycache__/
 *.sln
 *.sw?
 *.apkg
+.claude/skills/

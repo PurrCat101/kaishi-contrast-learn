@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Eyebrow, Tag, WordChip } from "@/components/ui-kit";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useSrs } from "@/lib/srs";
 import { searchVocabulary } from "@/lib/vocab-search";
 import { confusablesFrom } from "@/lib/vocab";
@@ -71,16 +72,24 @@ function WordList() {
       <p className="font-mono text-xs text-muted-foreground">Try: <code>studied:today</code> · <code>studied:week</code> · <code>introduced:week</code> · <code>difficulty:hard</code> · <code>difficulty:&gt;=7</code> · <code>state:review</code> · <code>is:confusing</code>. Combine terms with spaces.</p>
       {isFetching && <p className="font-mono text-xs text-muted-foreground">Loading the imported vocabulary catalogue…</p>}
       {isError && <p className="font-mono text-xs text-muted-foreground">Could not reach the catalogue; showing the bundled offline deck.</p>}
-      <div className="flex flex-wrap items-center justify-between gap-3 font-mono text-xs text-muted-foreground">
-        <p>{results.length.toLocaleString()} matching words · page {currentPage} of {pageCount}</p>
-        <label className="flex items-center gap-2">Page size
-          <select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }} className="rounded border border-border bg-card px-2 py-1 text-foreground">
-            {[24, 48, 96].map((size) => <option key={size} value={size}>{size}</option>)}
-          </select>
-        </label>
-      </div>
+      {!isFetching && (
+        <div className="flex flex-wrap items-center justify-between gap-3 font-mono text-xs text-muted-foreground">
+          <p>{results.length.toLocaleString()} matching words · page {currentPage} of {pageCount}</p>
+          <label className="flex items-center gap-2">Page size
+            <select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }} className="rounded border border-border bg-card px-2 py-1 text-foreground">
+              {[24, 48, 96].map((size) => <option key={size} value={size}>{size}</option>)}
+            </select>
+          </label>
+        </div>
+      )}
       <div className="grid gap-3 md:grid-cols-2">
-        {list.map((w) => <WordChip key={w.id} w={w} />)}
+        {isFetching ? (
+          Array.from({ length: pageSize }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full" />
+          ))
+        ) : (
+          list.map((w) => <WordChip key={w.id} w={w} />)
+        )}
       </div>
       {results.length > 0 && <div className="flex items-center justify-center gap-3">
         <button type="button" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)} className="rounded-md border-2 border-border bg-card px-4 py-2 font-bold shadow-hard-sm disabled:cursor-not-allowed disabled:opacity-40">Previous</button>
