@@ -120,9 +120,21 @@ function Header() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [clicked, setClicked] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   useEffect(() => setClicked(null), [pathname]);
   useEffect(() => setMobileMenuOpen(false), [pathname]);
   const activePath = clicked ?? pathname;
+  // supabase-js reports OAuth failures (e.g. provider disabled) in the result instead of throwing.
+  const handleSignIn = async () => {
+    setAuthError(null);
+    const { error } = await signInWithGoogle();
+    if (error) setAuthError(error.message);
+  };
+  const handleSignOut = async () => {
+    setAuthError(null);
+    const { error } = await signOut();
+    if (error) setAuthError(error.message);
+  };
 
   return (
     <>
@@ -131,9 +143,9 @@ function Header() {
           <Link to="/" className="flex items-center gap-2 sm:gap-3 no-underline">
             <span lang="ja" className="flex size-8 sm:size-10 items-center justify-center rounded-md border-2 border-border bg-primary font-jp-serif text-lg sm:text-2xl font-bold text-primary-foreground shadow-hard-sm">橋</span>
             <span className="font-display text-lg sm:text-2xl text-foreground">Hashi</span>
-            <span className="hidden font-mono text-[10px] sm:text-xs uppercase tracking-widest text-muted-foreground sm:inline">Kaishi 1.5k</span>
+            <span className="hidden font-mono text-[10px] sm:text-xs uppercase tracking-widest text-muted-foreground xl:inline">Kaishi 1.5k</span>
           </Link>
-          <div className="flex items-center gap-1 sm:gap-2">
+          <div className="flex min-w-0 items-center gap-1 sm:gap-2">
             <nav className="hidden sm:flex min-w-0 items-center gap-1 overflow-hidden -my-1 py-1 pr-1" aria-label="Main">
               {nav.map(({ to, label, icon: Icon }) => (
                 <Link
@@ -141,35 +153,38 @@ function Header() {
                   to={to}
                   onClick={() => setClicked(to)}
                   aria-current={activePath === to ? "page" : undefined}
+                  aria-label={label}
+                  title={label}
                   className={cn(
                     "flex min-h-10 sm:min-h-11 items-center gap-1 sm:gap-2 rounded-full border-2 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 font-bold text-sm md:text-base text-foreground no-underline transition-colors whitespace-nowrap",
                     activePath === to ? "border-border bg-secondary shadow-hard-sm" : "border-transparent hover:bg-muted",
                   )}
                 >
                   <Icon className="size-4" />
-                  <span className="hidden sm:inline">{label}</span>
+                  <span className="hidden lg:inline">{label}</span>
                 </Link>
               ))}
             </nav>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
+              {configured && loading && <div className="size-10" aria-hidden="true" />}
               {configured && !loading && (
                 <>
                   {session ? (
                     <div className="flex items-center gap-2">
-                      <div className="hidden sm:flex items-center gap-2 rounded-full border-2 border-border bg-muted px-3 py-1">
+                      <div className="hidden sm:flex items-center gap-2 rounded-full border-2 border-border bg-muted px-1.5 xl:px-3 py-1">
                         <div className="size-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
                           {session.user.email?.[0]?.toUpperCase() || "U"}
                         </div>
-                        <span className="font-mono text-xs text-muted-foreground max-w-[100px] truncate">
+                        <span className="hidden xl:inline font-mono text-xs text-muted-foreground max-w-[100px] truncate">
                           {session.user.email?.split("@")[0]}
                         </span>
                       </div>
-                      <Button variant="ghost" size="icon" aria-label="Sign out" title="Sign out" onClick={() => void signOut()}>
+                      <Button variant="ghost" size="icon" aria-label="Sign out" title="Sign out" onClick={() => void handleSignOut()}>
                         <LogOut className="size-4" />
                       </Button>
                     </div>
                   ) : (
-                    <Button variant="surface" size="icon" aria-label="Sign in with Google" title="Sign in with Google" onClick={() => void signInWithGoogle()}>
+                    <Button variant="surface" size="icon" aria-label="Sign in with Google" title="Sign in with Google" onClick={() => void handleSignIn()}>
                       <LogIn className="size-4" />
                     </Button>
                   )}
@@ -188,6 +203,11 @@ function Header() {
           </div>
         </div>
       </header>
+      {authError && (
+        <p role="alert" className="border-b-2 border-border bg-destructive px-4 py-2 font-mono text-xs text-destructive-foreground">
+          Auth error: {authError}
+        </p>
+      )}
       {mobileMenuOpen && (
         <nav className="sm:hidden border-b-2 border-border bg-background px-3 py-2 flex flex-col gap-1" aria-label="Mobile">
           {nav.map(({ to, label, icon: Icon }) => (
@@ -209,12 +229,12 @@ function Header() {
             </Link>
           ))}
           <div className="border-t-2 border-border mt-2 pt-2">
-            {!loading && (
+            {configured && !loading && (
               <>
                 {session ? (
                   <button
                     onClick={() => {
-                      signOut();
+                      void handleSignOut();
                       setMobileMenuOpen(false);
                     }}
                     className="w-full flex items-center gap-3 rounded-full border-2 border-transparent px-3 py-2 font-bold text-foreground hover:bg-muted transition-colors"
@@ -225,7 +245,7 @@ function Header() {
                 ) : (
                   <button
                     onClick={() => {
-                      signInWithGoogle();
+                      void handleSignIn();
                       setMobileMenuOpen(false);
                     }}
                     className="w-full flex items-center gap-3 rounded-full border-2 border-border bg-primary px-3 py-2 font-bold text-primary-foreground hover:shadow-hard-sm transition-all"
