@@ -24,6 +24,7 @@ function Progress() {
   const catalogue = data ?? bundledCatalog;
   const byId = new Map(catalogue.map((word) => [word.id, word]));
   const [now, setNow] = useState(Date.now());
+  const [showAgain, setShowAgain] = useState(true);
 
   useEffect(() => {
     setNow(Date.now());
@@ -48,30 +49,41 @@ function Progress() {
       </div>
 
       <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <Big label="Due now" value={dueNow} sub="cards to review" tone="accent" />
-        <Big label="Learning" value={st.learning} sub="stability under 7 days" tone="secondary" />
-        <Big label="Learned" value={st.learned} sub={`of ${catalogue.length} words`} tone="mint" />
-        <Big label="Streak" value={streak(s)} sub="days in a row" tone="info" />
+        <Big label="Due now" value={dueNow} sub="cards to review" tone="accent" tooltip="Cards scheduled for today" />
+        <Big label="Young" value={st.learning} sub="stability under 7 days (Anki: learning)" tone="secondary" tooltip="Learning and relearning cards. Not yet stable." />
+        <Big label="Mature" value={st.learned} sub={`of ${catalogue.length} words`} tone="mint" tooltip="Solid knowledge. 7+ days stability." />
+        <Big label="Started" value={st.total} sub="words touched" tone="info" tooltip="Total: Mature + Young + New" />
       </section>
 
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-xl">Deck coverage</h2>
-          <span className="font-mono text-sm text-muted-foreground">{st.total} / {catalogue.length} seen</span>
+          <span className="font-mono text-sm text-muted-foreground">{st.total} / {catalogue.length} words started</span>
         </div>
         <ProgressBar className="mt-4" value={st.learned} max={catalogue.length} tone="mint" />
-        <p className="mt-2 font-mono text-xs text-muted-foreground">Green = learned · seen but still learning: {st.learning}</p>
+        <p className="mt-2 font-mono text-xs text-muted-foreground">Green = mature ({st.learned}) · Yellow = young ({st.learning})</p>
       </Card>
 
       <section className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <h2 className="text-xl">Review history</h2>
-          <p className="text-sm text-muted-foreground">Last 14 days · red = pressed Again</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-xl">Review history</h2>
+              <p className="text-sm text-muted-foreground">Last 14 days · max: {maxHist}</p>
+            </div>
+            <button
+              onClick={() => setShowAgain(!showAgain)}
+              className="rounded-full border-2 border-border bg-muted px-3 py-1 text-xs font-semibold uppercase text-foreground transition-colors hover:bg-muted/80"
+              title={showAgain ? "Hide Again count" : "Show Again count"}
+            >
+              {showAgain ? "Hide Again" : "Show Again"}
+            </button>
+          </div>
           <div className="mt-6 flex h-40 items-end gap-1.5">
             {st.history.map((h) => (
-              <div key={h.day.toISOString()} className="group flex flex-1 flex-col items-center gap-1" title={`${h.day.toLocaleDateString()} · ${h.count} reviews`}>
+              <div key={h.day.toISOString()} className="group flex flex-1 flex-col items-center gap-1" title={`${h.day.toLocaleDateString()} · ${h.count} reviews${h.again ? `, ${h.again} again` : ""}`}>
                 <div className="flex w-full flex-col justify-end overflow-hidden rounded-t-sm border-2 border-b-0 border-border bg-info" style={{ height: `${(h.count / maxHist) * 100}%`, minHeight: h.count ? 6 : 0 }}>
-                  <div className="w-full bg-destructive" style={{ height: `${h.count ? (h.again / h.count) * 100 : 0}%` }} />
+                  {showAgain && <div className="w-full bg-destructive" style={{ height: `${h.count ? (h.again / h.count) * 100 : 0}%` }} />}
                 </div>
               </div>
             ))}
@@ -83,11 +95,15 @@ function Progress() {
         </Card>
 
         <Card>
-          <h2 className="text-xl">Upcoming reviews</h2>
-          <p className="text-sm text-muted-foreground">From your current review schedule · next 7 days</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl">Upcoming reviews</h2>
+              <p className="text-sm text-muted-foreground">Next 7 days · max: {maxFc}</p>
+            </div>
+          </div>
           <div className="mt-6 flex h-40 items-end gap-1.5">
             {st.forecast.map((f, i) => (
-              <div key={i} className="flex flex-1 flex-col items-center gap-1">
+              <div key={i} className="flex flex-1 flex-col items-center gap-1" title={`${f.day.toLocaleDateString()} · ${f.count} due`}>
                 <span className="font-mono text-xs text-foreground">{f.count}</span>
                 <div className={cn("w-full rounded-t-sm border-2 border-b-0 border-border", i === 0 ? "bg-primary" : "bg-secondary")} style={{ height: `${(f.count / maxFc) * 100}%`, minHeight: f.count ? 6 : 0 }} />
               </div>
@@ -182,9 +198,9 @@ function Progress() {
   );
 }
 
-function Big({ label, value, sub, tone }: { label: string; value: number; sub: string; tone: "mint" | "secondary" | "accent" | "info" }) {
+function Big({ label, value, sub, tone, tooltip }: { label: string; value: number; sub: string; tone: "mint" | "secondary" | "accent" | "info"; tooltip?: string }) {
   return (
-    <Card tone={tone} className="p-5">
+    <Card tone={tone} className="p-5 cursor-help" title={tooltip}>
       <Eyebrow className="text-foreground/70">{label}</Eyebrow>
       <p className="mt-1 font-display text-5xl text-foreground">{value}</p>
       <p className="mt-1 text-sm text-body">{sub}</p>
