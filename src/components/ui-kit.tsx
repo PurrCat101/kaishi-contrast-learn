@@ -119,11 +119,11 @@ export function WordChip({ w, highlight }: { w: Word; highlight?: boolean }) {
     <Link
       to="/vocab/$id_number"
       params={{ id_number: String(w.idNumber) }}
-      className={cn("card-hard-sm pressable-sm flex items-baseline gap-3 px-4 py-2 no-underline", highlight && "bg-secondary")}
+      className={cn("card-hard-sm pressable-sm flex min-w-0 items-baseline gap-3 px-4 py-2 no-underline", highlight && "bg-secondary")}
     >
-      <span lang="ja" className="font-jp text-xl font-semibold text-foreground">{w.word}</span>
-      <span lang="ja" className="font-jp text-sm text-muted-foreground">{w.reading}</span>
-      <span className="ml-auto truncate text-sm text-body">{w.meaning}</span>
+      <span lang="ja" className="font-jp shrink-0 whitespace-nowrap text-xl font-semibold text-foreground">{w.word}</span>
+      <span lang="ja" className="font-jp shrink-0 whitespace-nowrap text-sm text-muted-foreground">{w.reading}</span>
+      <span className="ml-auto min-w-0 truncate text-sm text-body">{w.meaning}</span>
     </Link>
   );
 }

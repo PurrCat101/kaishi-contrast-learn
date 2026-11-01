@@ -91,7 +91,7 @@ function WordList() {
           </label>
         </div>
       )}
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {isFetching ? (
           Array.from({ length: pageSize }).map((_, i) => (
             <Skeleton key={i} className="h-16 w-full" />
